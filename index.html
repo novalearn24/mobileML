@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mobile AI Trainer - POSE</title>
+    <title>Mobile ML Pose</title>
     
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
@@ -18,7 +18,7 @@
             --bg-page: #ffffff;
             --text-main: #2d3436;
             --color-pose-banner: #00cec9;
-            --turquoise: #00cec9; /* Updated color */
+            --turquoise: #00cec9;
         }
 
         body { 
@@ -48,6 +48,16 @@
         video, canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
         video { transform: scaleX(-1); }
         canvas { z-index: 10; pointer-events: none; transform: scaleX(-1); }
+
+        /* The requested counter dot */
+        #live-counter {
+            position: absolute; bottom: 15px; left: 15px;
+            width: 45px; height: 45px; border-radius: 50%;
+            background: var(--turquoise); color: white;
+            display: none; align-items: center; justify-content: center;
+            font-weight: 900; z-index: 30; font-size: 1rem;
+            border: 2px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
 
         #status-bar {
             width: 100%; max-width: 420px; background: white; padding: 15px; 
@@ -87,18 +97,19 @@
 
     <div id="loading-overlay"><p style="font-weight:700;">Powering Up AI (POSE MODE)...</p></div>
 
-    <h2>📱 Mobile AI Trainer</h2>
+    <h2>📱 Mobile ML Pose</h2>
     
     <div id="pose-banner" class="pose-banner">DETECTED: <span id="res-val">---</span></div>
 
     <div id="video-container">
         <video autoplay playsinline muted id="webcam"></video>
         <canvas id="canvas"></canvas>
+        <div id="live-counter">0</div>
     </div>
 
     <div id="status-bar">
         <span id="prediction" style="font-size: 1.4rem; font-weight: 900; color: var(--color-lines);">Ready to Train</span>
-        <span id="confidence" style="font-size: 0.8rem; color: #636e72; margin-top: 6px;">Hold buttons to add data</span>
+        <span id="confidence" style="font-size: 0.8rem; color: #636e72; margin-top: 6px;">Need 50 images per class</span>
     </div>
 
     <div class="toolbar">
@@ -129,6 +140,7 @@
         let counts = { 0: 0, 1: 0, bg: 0 };
         let timer;
         let currentFacingMode = 'user';
+        const MIN_SAMPLES = 50;
 
         async function setupWebcam() {
             const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -173,13 +185,14 @@
                     if (kp.score > 0.4) {
                         ctx.beginPath();
                         ctx.arc(kp.x, kp.y, 10, 0, 2*Math.PI);
-                        ctx.fillStyle = "#00cec9"; // TURQUOISE DOTS
+                        ctx.fillStyle = "#00cec9";
                         ctx.fill();
                         ctx.strokeStyle = "white"; ctx.lineWidth = 3; ctx.stroke();
                     }
                 });
 
-                if (classifier.getNumClasses() > 0) {
+                // Guessing Logic with 50-image threshold
+                if (counts[0] >= MIN_SAMPLES && counts[1] >= MIN_SAMPLES) {
                     const feat = tf.tensor2d(pose.keypoints.map(k => [k.x, k.y]).flat(), [1, 34]);
                     const res = await classifier.predictClass(feat);
                     
@@ -191,6 +204,9 @@
                         document.getElementById('confidence').innerText = Math.floor(res.confidences[res.label] * 100) + "% Confidence";
                     }
                     feat.dispose();
+                } else {
+                    document.getElementById('prediction').innerText = "Training Mode";
+                    document.getElementById('confidence').innerText = `Progress: A(${counts[0]}/50) B(${counts[1]}/50)`;
                 }
             }
             requestAnimationFrame(loop);
@@ -203,6 +219,12 @@
                 classifier.addExample(feat, id);
                 counts[id]++;
                 document.getElementById('count-'+id).innerText = counts[id];
+                
+                // Update live counter dot
+                const counter = document.getElementById('live-counter');
+                counter.style.display = 'flex';
+                counter.innerText = counts[id];
+                
                 feat.dispose();
             }
         }
@@ -215,7 +237,7 @@
             const dataset = classifier.getClassifierDataset();
             const datasetObj = Object.entries(dataset).map(([label, data]) => [label, Array.from(data.dataSync()), data.shape]);
             const a = document.createElement('a');
-            a.href = URL.createObjectURL(new Blob([JSON.stringify({data: datasetObj, labels: [document.getElementById('label-0').value, document.getElementById('label-1').value]})], {type: "application/json"}));
+            a.href = URL.createObjectURL(new Blob([JSON.stringify({data: datasetObj, labels: [document.getElementById('label-0').value, document.getElementById('label-1').value], counts: counts})], {type: "application/json"}));
             a.download = "pose_model.json"; a.click();
         }
 
@@ -227,6 +249,8 @@
                 classifier.setClassifierDataset(dataset);
                 document.getElementById('label-0').value = content.labels[0];
                 document.getElementById('label-1').value = content.labels[1];
+                counts = content.counts || {0:50, 1:50, bg:10}; // Fallback if old save
+                ['0','1','bg'].forEach(id => document.getElementById('count-'+id).innerText = counts[id]);
                 updateBtnText(0); updateBtnText(1);
                 alert("Model Loaded!");
             };
@@ -240,13 +264,17 @@
                 ['0','1','bg'].forEach(id => document.getElementById('count-'+id).innerText = '0');
                 document.getElementById('pose-banner').style.display = "none";
                 document.getElementById('prediction').innerText = "Ready to Train";
+                document.getElementById('live-counter').style.display = 'none';
             }
         }
 
         ['0', '1', 'bg'].forEach(id => {
             const b = document.getElementById('btn-'+id);
             const start = (e) => { e.preventDefault(); timer = setInterval(() => train(id), 100); };
-            const stop = () => clearInterval(timer);
+            const stop = () => { 
+                clearInterval(timer); 
+                document.getElementById('live-counter').style.display = 'none'; 
+            };
             b.addEventListener('touchstart', start); b.addEventListener('touchend', stop);
             b.addEventListener('mousedown', start); b.addEventListener('mouseup', stop);
         });
