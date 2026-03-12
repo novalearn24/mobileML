@@ -3,71 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Pose Trainer Pro</title>
+    <title>AI Pose Studio Pro</title>
     
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/knn-classifier"></script>
 
     <style>
-        :root { --neon: #00ffcc; --bg: #0a0a0a; --panel: #1a1a1a; }
-        body { margin: 0; background: var(--bg); color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; align-items: center; }
+        :root { --neon: #00ffcc; --hotpink: #ff00ff; --bg: #050505; --card: #121212; }
         
-        header { width: 100%; padding: 15px; background: var(--panel); text-align: center; border-bottom: 2px solid #333; }
-        #msg { color: var(--neon); font-weight: bold; font-size: 0.9rem; margin-top: 5px; }
+        body { 
+            margin: 0; background: var(--bg); color: white; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica;
+            display: flex; flex-direction: column; align-items: center; min-height: 100vh;
+        }
 
-        #container { position: relative; width: 95vw; height: 70vw; max-width: 500px; max-height: 375px; margin: 15px 0; border: 3px solid #333; border-radius: 15px; overflow: hidden; background: #000; }
-        video { position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: 1; transform: scaleX(-1); }
-        canvas { position: absolute; width: 100%; height: 100%; z-index: 2; pointer-events: none; transform: scaleX(-1); }
+        /* The Status Banner */
+        header { 
+            width: 100%; padding: 20px 0; background: linear-gradient(to bottom, #1a1a1a, var(--bg));
+            text-align: center; border-bottom: 1px solid #333;
+        }
+        #status-msg { 
+            font-size: 0.8rem; font-weight: 800; text-transform: uppercase; 
+            letter-spacing: 2px; color: var(--neon); margin-top: 5px;
+        }
 
-        .dashboard { width: 95vw; max-width: 500px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-bottom: 30px; }
-        .card { background: var(--panel); padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #333; }
+        /* The Video Container */
+        #viewport { 
+            position: relative; width: 92vw; height: 92vw; max-width: 480px; max-height: 480px;
+            margin: 20px 0; border-radius: 24px; overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5), 0 0 20px rgba(0,255,204,0.1);
+            border: 2px solid #222; background: #000;
+        }
+        video { position: absolute; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); opacity: 0.8; }
+        canvas { position: absolute; width: 100%; height: 100%; z-index: 10; transform: scaleX(-1); }
+
+        /* The Pose Ribbon (Underneath/Over Video) */
+        #prediction-ribbon {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0, 255, 204, 0.9); color: black; padding: 10px 30px;
+            border-radius: 50px; font-weight: 900; font-size: 1.2rem;
+            z-index: 20; box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            display: none; white-space: nowrap;
+        }
+
+        /* Dashboard & Controls */
+        .grid { 
+            display: grid; grid-template-columns: 1fr 1fr; gap: 12px; 
+            width: 92vw; max-width: 480px; padding-bottom: 40px;
+        }
+        .control-card { 
+            background: var(--card); padding: 20px 15px; border-radius: 20px; 
+            border: 1px solid #222; text-align: center;
+        }
+        .count-badge { font-size: 1.8rem; font-weight: 900; color: white; display: block; margin-bottom: 5px; }
+        .label { font-size: 0.65rem; color: #777; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px; }
         
-        .btn { border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; touch-action: none; width: 100%; }
-        .btn-train { padding: 20px 10px; font-size: 1rem; margin-top: 10px; }
-        .btn-util { padding: 10px; font-size: 0.8rem; background: #444; margin-top: 5px; }
+        .btn { 
+            width: 100%; border: none; border-radius: 12px; padding: 18px 0;
+            color: white; font-weight: 800; font-size: 0.9rem; cursor: pointer;
+            transition: transform 0.1s, filter 0.2s; touch-action: none;
+        }
+        .btn:active { transform: scale(0.96); filter: brightness(1.2); }
         
-        .count { font-size: 1.5rem; font-weight: bold; display: block; margin-bottom: 5px; }
+        .btn-a { background: #007bff; }
+        .btn-b { background: #6f42c1; }
+        .btn-bg { background: #333; }
         
-        /* Prediction Overlay */
-        #prediction-ribbon { position: absolute; top: 10px; left: 10px; padding: 8px 15px; background: rgba(0,0,0,0.7); border-radius: 20px; color: var(--neon); z-index: 10; font-weight: bold; border: 1px solid var(--neon); display: none; }
+        .footer-tools { 
+            grid-column: span 2; display: flex; gap: 10px; margin-top: 10px;
+        }
+        .btn-tool { background: #222; padding: 12px; font-size: 0.7rem; color: #aaa; }
     </style>
 </head>
 <body>
 
 <header>
-    <div style="font-weight: 900; letter-spacing: 2px;">POSETRAINER <span style="color:var(--neon)">PRO</span></div>
-    <div id="msg">INITIALIZING CAMERA...</div>
+    <div style="font-weight: 900; font-size: 1.2rem;">POSE<span style="color:var(--neon)">STUDIO</span></div>
+    <div id="status-msg">Waking up AI...</div>
 </header>
 
-<div id="container">
-    <div id="prediction-ribbon">DETECTED: <span id="res-val">---</span></div>
+<div id="viewport">
+    <div id="prediction-ribbon">POSE: <span id="res-label">---</span></div>
     <video id="webcam" autoplay playsinline muted></video>
     <canvas id="canvas"></canvas>
 </div>
 
-<div class="dashboard">
-    <div class="card">
-        <span class="count" id="c0">0</span>
-        <div style="font-size: 0.7rem; color: #aaa;">CLASS A (e.g. Hands Up)</div>
-        <button class="btn btn-train" id="btn-0" style="background: #2ecc71;">TRAIN A</button>
-    </div>
-    
-    <div class="card">
-        <span class="count" id="c1">0</span>
-        <div style="font-size: 0.7rem; color: #aaa;">CLASS B (e.g. Squat)</div>
-        <button class="btn btn-train" id="btn-1" style="background: #e74c3c;">TRAIN B</button>
+<div class="grid">
+    <div class="control-card">
+        <span class="count-badge" id="c0">0</span>
+        <div class="label">Class A Pose</div>
+        <button class="btn btn-a" id="btn-0">TRAIN A</button>
     </div>
 
-    <div class="card" style="grid-column: span 2;">
-        <span class="count" id="cbg">0</span>
-        <div style="font-size: 0.7rem; color: #aaa;">BACKGROUND (No person or neutral)</div>
-        <button class="btn btn-train" id="btn-bg" style="background: #7f8c8d;">TRAIN BG</button>
+    <div class="control-card">
+        <span class="count-badge" id="c1">0</span>
+        <div class="label">Class B Pose</div>
+        <button class="btn btn-b" id="btn-1">TRAIN B</button>
     </div>
 
-    <div class="card" style="grid-column: span 2; display: flex; gap: 10px; background: transparent; border: none;">
-        <button class="btn btn-util" onclick="saveModel()">💾 DOWNLOAD BRAIN</button>
-        <button class="btn btn-util" onclick="document.getElementById('loader').click()">📂 LOAD BRAIN</button>
+    <div class="control-card" style="grid-column: span 2;">
+        <span class="count-badge" id="cbg">0</span>
+        <div class="label">Background / Neutral</div>
+        <button class="btn btn-bg" id="btn-bg">TRAIN BACKGROUND</button>
+    </div>
+
+    <div class="footer-tools">
+        <button class="btn btn-tool" onclick="saveModel()">DOWNLOAD BRAIN</button>
+        <button class="btn btn-tool" onclick="document.getElementById('loader').click()">LOAD BRAIN</button>
         <input type="file" id="loader" style="display:none" onchange="loadModel(event)">
     </div>
 </div>
@@ -85,17 +128,15 @@
         try {
             const model = poseDetection.SupportedModels.MoveNet;
             detector = await poseDetection.createDetector(model);
-            
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
             video.srcObject = stream;
-
             video.onloadedmetadata = () => {
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
-                document.getElementById('msg').innerText = "AI ACTIVE - STAND 5-8 FEET AWAY";
+                document.getElementById('status-msg').innerText = "AI Ready • Step Back";
                 loop();
             };
-        } catch (e) { document.getElementById('msg').innerText = "ERROR: " + e.message; }
+        } catch (e) { document.getElementById('status-msg').innerText = "Error: Check Permissions"; }
     }
 
     async function loop() {
@@ -104,31 +145,32 @@
 
         if (poses.length > 0) {
             const pose = poses[0];
-            drawSkeleton(pose);
+            
+            // Draw Pro Dots
+            pose.keypoints.forEach(kp => {
+                if (kp.score > 0.3) {
+                    ctx.beginPath();
+                    ctx.arc(kp.x, kp.y, 12, 0, 2 * Math.PI);
+                    ctx.fillStyle = "#ff00ff"; // Hot Pink Dots
+                    ctx.fill();
+                    ctx.strokeStyle = "white";
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                }
+            });
 
-            // Predict if we have data
+            // Prediction Logic
             if (classifier.getNumClasses() > 0) {
                 const feat = tf.tensor2d(pose.keypoints.map(k => [k.x, k.y]).flat(), [1, 34]);
                 const res = await classifier.predictClass(feat);
-                
-                document.getElementById('prediction-ribbon').style.display = "block";
-                document.getElementById('res-val').innerText = res.label.toUpperCase();
+                if (res.confidences[res.label] > 0.7) {
+                    document.getElementById('prediction-ribbon').style.display = "block";
+                    document.getElementById('res-label').innerText = res.label.toUpperCase();
+                }
                 feat.dispose();
             }
         }
         requestAnimationFrame(loop);
-    }
-
-    function drawSkeleton(pose) {
-        // Draw Points
-        pose.keypoints.forEach(kp => {
-            if (kp.score > 0.4) {
-                ctx.beginPath();
-                ctx.arc(kp.x, kp.y, 8, 0, 2*Math.PI);
-                ctx.fillStyle = "white"; ctx.fill();
-                ctx.strokeStyle = "#00ffcc"; ctx.lineWidth = 2; ctx.stroke();
-            }
-        });
     }
 
     async function train(id) {
@@ -142,14 +184,12 @@
         }
     }
 
-    // --- SAVE & LOAD LOGIC ---
     function saveModel() {
         const dataset = classifier.getClassifierDataset();
         const datasetObj = Object.entries(dataset).map(([label, data]) => [label, Array.from(data.dataSync()), data.shape]);
-        const json = JSON.stringify(datasetObj);
-        const blob = new Blob([json], {type: "application/json"});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = "my_ai_model.json"; a.click();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([JSON.stringify(datasetObj)], {type: "application/json"}));
+        a.download = "pose_model.json"; a.click();
     }
 
     async function loadModel(event) {
@@ -158,12 +198,11 @@
             const datasetObj = JSON.parse(e.target.result);
             const dataset = Object.fromEntries(datasetObj.map(([label, data, shape]) => [label, tf.tensor2d(data, shape)]));
             classifier.setClassifierDataset(dataset);
-            document.getElementById('msg').innerText = "MODEL LOADED SUCCESSFULLY!";
+            document.getElementById('status-msg').innerText = "Brain Loaded!";
         };
         reader.readAsText(event.target.files[0]);
     }
 
-    // Button Setup
     let timer;
     ['0', '1', 'bg'].forEach(id => {
         const b = document.getElementById('btn-'+id);
