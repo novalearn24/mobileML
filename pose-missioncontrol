@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Robot Mission Control - POSE</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/knn-classifier"></script>
+
+    <style>
+        :root {
+            --color-lines: #3b1d4a;   
+            --turquoise: #00cec9;
+            --bg-page: #ffffff;
+        }
+
+        body { 
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-page);
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000' preserveAspectRatio='none'%3E%3Cdefs%3E%3Cg id='bus'%3E%3Cpath d='M0,0 L10,10 L10,50 L0,60'/%3E%3Cpath d='M12,0 L22,10 L22,50 L12,60'/%3E%3Cpath d='M24,0 L34,10 L34,50 L24,60'/%3E%3Cpath d='M36,0 L46,10 L46,50 L36,60'/%3E%3C/g%3E%3C/defs%3E%3Cuse href='%23bus' transform='translate(-10, 80) scale(3.5)' stroke='%233b1d4a' stroke-width='0.8' fill='none'/%3E%3Cuse href='%23bus' transform='translate(-10, 620) scale(3.5)' stroke='%233b1d4a' stroke-width='0.8' fill='none'/%3E%3Cuse href='%23bus' transform='translate(1010, 80) scale(-3.5, 3.5)' stroke='%233b1d4a' stroke-width='0.8' fill='none'/%3E%3Cuse href='%23bus' transform='translate(1010, 620) scale(-3.5, 3.5)' stroke='%233b1d4a' stroke-width='0.8' fill='none'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-size: cover; background-attachment: fixed;
+            margin: 0; display: flex; flex-direction: column; align-items: center; 
+            min-height: 100vh; padding: 10px; box-sizing: border-box;
+        }
+
+        h2 { margin: 15px 0 10px 0; font-size: 1.3rem; color: var(--color-lines); font-weight: 800; }
+
+        #video-container { 
+            position: relative; width: 100%; max-width: 420px; border-radius: 24px; 
+            overflow: hidden; border: 6px solid #f8f9fa; aspect-ratio: 1/1; background: black;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+        }
+        video, canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+        video { transform: scaleX(-1); }
+        canvas { z-index: 10; pointer-events: none; transform: scaleX(-1); }
+
+        #status-bar {
+            width: 100%; max-width: 420px; background: white; padding: 18px; 
+            border-radius: 20px; margin: 15px 0; text-align: center;
+            border: 1px solid #eee; min-height: 95px; display: flex; flex-direction: column; justify-content: center;
+            box-sizing: border-box; box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        .toolbar { display: flex; gap: 8px; margin-bottom: 15px; width: 100%; max-width: 420px; }
+        .setup-btn { background: #fff; border: 2px solid #0984e3; color: #0984e3; padding: 12px; border-radius: 12px; font-weight: 700; flex: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 0.8rem; }
+        .sync-active { border-color: var(--turquoise) !important; color: var(--turquoise) !important; font-weight: bold; }
+
+        #console {
+            width: 100%; max-width: 420px; height: 120px; background: #000; color: #00ff88;
+            border-radius: 15px; padding: 15px; font-family: 'Courier New', monospace;
+            font-size: 0.8rem; overflow-y: auto; box-sizing: border-box; border: 1px solid #333;
+        }
+
+        #mode-switcher {
+            margin: 30px 0; padding: 12px 24px; border-radius: 30px;
+            background: var(--color-lines); color: white;
+            text-decoration: none; font-weight: 800; font-size: 0.9rem;
+            box-shadow: 0 4px 15px rgba(59, 29, 74, 0.3);
+            display: inline-flex; align-items: center; gap: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>🤖 POSE MISSION CONTROL</h2>
+    
+    <div id="video-container">
+        <video autoplay playsinline muted id="webcam"></video>
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <div id="status-bar">
+        <span id="prediction" style="font-size: 1.4rem; font-weight: 900; color: var(--color-lines);">System Standby</span>
+        <span id="confidence" style="font-size: 0.8rem; color: #636e72; margin-top: 6px;">Connect Bluetooth & Load Pose Model</span>
+    </div>
+
+    <div class="toolbar">
+        <button id="bt-btn" class="setup-btn" onclick="connectBT()">🔗 Connect Micro:bit</button>
+        <button id="model-btn" class="setup-btn" onclick="document.getElementById('load-file').click()">📂 Load Pose Model</button>
+        <input type="file" id="load-file" style="display:none" onchange="loadModel(event)">
+    </div>
+
+    <div id="console">> Initializing System...<br>> Pose Engine Ready.</div>
+
+    <a href="pose.html" id="mode-switcher">⇠ Back to POSE Trainer</a>
+
+    <script>
+        let detector, classifier, video, canvas, ctx;
+        let characteristic;
+        let labels = ["Class A", "Class B"];
+        let isModelLoaded = false;
+        let lastSent = "";
+        let isSending = false;
+
+        // Use the same UUID from your working Image Mission Control
+        const SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+
+        async function init() {
+            video = document.getElementById('webcam');
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d');
+            classifier = knnClassifier.create();
+
+            const model = poseDetection.SupportedModels.MoveNet;
+            detector = await poseDetection.createDetector(model);
+            
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+            video.srcObject = stream;
+            
+            video.onloadedmetadata = () => {
+                video.play();
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                loop();
+            };
+        }
+
+        async function loop() {
+            if (isModelLoaded) {
+                const poses = await detector.estimatePoses(video);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                if (poses.length > 0) {
+                    const pose = poses[0];
+                    pose.keypoints.forEach(kp => {
+                        if (kp.score > 0.4) {
+                            ctx.beginPath(); ctx.arc(kp.x, kp.y, 6, 0, 2*Math.PI);
+                            ctx.fillStyle = "#00cec9"; ctx.fill();
+                        }
+                    });
+
+                    const feat = tf.tensor2d(pose.keypoints.map(k => [k.x, k.y]).flat(), [1, 34]);
+                    const res = await classifier.predictClass(feat);
+                    
+                    if(res.confidences[res.label] > 0.7) {
+                        const resultLabel = res.label === 'bg' ? 'Neutral' : labels[res.label];
+                        document.getElementById('prediction').innerText = resultLabel.toUpperCase();
+                        document.getElementById('confidence').innerText = Math.floor(res.confidences[res.label] * 100) + "% Match";
+                        
+                        if (resultLabel !== lastSent && !isSending && characteristic) {
+                            sendData(resultLabel);
+                            lastSent = resultLabel;
+                        }
+                    }
+                    feat.dispose();
+                }
+            }
+            requestAnimationFrame(loop);
+        }
+
+        // --- FIXED BLUETOOTH LOGIC (SYNCED WITH YOUR WORKING CODE) ---
+        async function connectBT() {
+            try {
+                logToConsole("Searching for micro:bit...");
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [{ namePrefix: "BBC micro:bit" }],
+                    optionalServices: [SERVICE_UUID]
+                });
+                
+                logToConsole("Connecting to Server...");
+                const server = await device.gatt.connect();
+                
+                logToConsole("Finding Service...");
+                const service = await server.getPrimaryService(SERVICE_UUID);
+                
+                logToConsole("Scanning Characteristics...");
+                const chars = await service.getCharacteristics();
+                
+                // Smart search: Find the one that allows writing without response
+                characteristic = chars.find(c => c.properties.writeWithoutResponse);
+
+                if (characteristic) {
+                    logToConsole("✅ Micro:bit Connected.");
+                    const btn = document.getElementById('bt-btn');
+                    btn.innerText = "✅ Synced";
+                    btn.classList.add('sync-active');
+                } else {
+                    logToConsole("❌ No write-room found.");
+                }
+            } catch (e) { logToConsole("BT Error: " + e); }
+        }
+
+        async function sendData(text) {
+            isSending = true;
+            try {
+                const encoder = new TextEncoder();
+                // Matching your working code's write method
+                await characteristic.writeValueWithoutResponse(encoder.encode(text + "\n"));
+                logToConsole("Sent: " + text);
+            } catch (e) { logToConsole("TX Error."); }
+            // Pause slightly so we don't overwhelm the micro:bit
+            setTimeout(() => { isSending = false; }, 600);
+        }
+
+        function logToConsole(msg) {
+            const c = document.getElementById('console');
+            c.innerHTML += `<br>> ${msg}`;
+            c.scrollTop = c.scrollHeight;
+        }
+
+        async function loadModel(event) {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const content = JSON.parse(e.target.result);
+                // Updated parsing to match the Pose JSON structure
+                const dataset = Object.fromEntries(content.data.map(([label, data, shape]) => [label, tf.tensor2d(data, shape)]));
+                classifier.setClassifierDataset(dataset);
+                labels = content.labels || ["Class A", "Class B"];
+                isModelLoaded = true;
+                logToConsole("✅ Pose Model Active.");
+                
+                const btn = document.getElementById('model-btn');
+                btn.innerText = "✅ Uploaded";
+                btn.classList.add('sync-active');
+            };
+            reader.readAsText(event.target.files[0]);
+        }
+
+        init();
+    </script>
+</body>
+</html>
