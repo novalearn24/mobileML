@@ -80,12 +80,18 @@
         #btn-0 { background: var(--color-class-a); color: #333; }
         #btn-1 { background: var(--color-class-b); }
 
-        #mode-switcher {
-            margin: 30px 0; padding: 12px 24px; border-radius: 30px;
+        /* --- NEW NAVIGATION STYLE --- */
+        .nav-container {
+            display: flex; gap: 10px; margin: 25px 0; width: 100%; max-width: 420px;
+        }
+
+        .mode-btn {
+            flex: 1; padding: 12px 10px; border-radius: 30px;
             background: var(--color-lines); color: white;
-            text-decoration: none; font-weight: 800; font-size: 0.9rem;
+            text-decoration: none; font-weight: 800; font-size: 0.75rem;
             box-shadow: 0 4px 15px rgba(59, 29, 74, 0.3);
-            display: inline-flex; align-items: center; gap: 8px;
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            text-align: center;
         }
 
         #loading-overlay { position: fixed; inset: 0; background: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 4000; }
@@ -131,7 +137,10 @@
         <button class="train-btn" id="btn-bg">HOLD: Background / Neutral<br><span id="count-bg">0</span></button>
     </div>
 
-    <a href="index.html" id="mode-switcher">⇠ Switch to IMAGE Trainer</a>
+    <div class="nav-container">
+        <a href="index.html" class="mode-btn">⇠ IMAGE Trainer</a>
+        <a href="pose-missioncontrol.html" class="mode-btn">POSE Mission ⇢</a>
+    </div>
 
     <script>
         let detector, classifier, video, canvas, ctx;
