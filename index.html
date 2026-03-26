@@ -87,12 +87,24 @@
         #btn-0 { background: var(--color-class-a); color: #333; }
         #btn-1 { background: var(--color-class-b); }
 
-        #mode-switcher {
-            margin: 30px 0; padding: 12px 24px; border-radius: 30px;
+        /* THE NEW DUAL BUTTON CONTAINER */
+        .nav-footer {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            max-width: 420px;
+            margin: 30px 0;
+            justify-content: center;
+        }
+
+        .mode-switcher {
+            flex: 1;
+            padding: 12px 10px; border-radius: 30px;
             background: var(--color-lines); color: white;
-            text-decoration: none; font-weight: 800; font-size: 0.9rem;
+            text-decoration: none; font-weight: 800; font-size: 0.75rem;
             box-shadow: 0 4px 15px rgba(59, 29, 74, 0.3);
-            display: inline-flex; align-items: center; gap: 8px;
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            white-space: nowrap;
         }
 
         #limit-pop { 
@@ -158,9 +170,13 @@
         <button class="train-btn" id="btn-bg">HOLD: Background<br><span id="count-bg">0</span> images</button>
     </div>
 
-    <a href="pose.html" id="mode-switcher">➔ Switch to POSE Trainer</a>
+    <div class="nav-footer">
+        <a href="missioncontrol.html" class="mode-switcher">⇠ MISSION CONTROL</a>
+        <a href="pose.html" class="mode-switcher">POSE TRAINER ⇢</a>
+    </div>
 
     <script>
+        // ... ALL JAVASCRIPT REMAINS UNCHANGED ...
         let classifier = knnClassifier.create();
         const webcamElement = document.getElementById('webcam');
         let net, timer, counts = { bg: 0, 0: 0, 1: 0 }, currentFacingMode = 'user', isPredicting = false;
