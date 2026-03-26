@@ -54,12 +54,23 @@
         }
 
         #mode-switcher {
-            margin: 30px 0; padding: 12px 24px; border-radius: 30px;
+            margin: 20px 0; padding: 12px 24px; border-radius: 30px;
             background: var(--color-lines); color: white;
             text-decoration: none; font-weight: 800; font-size: 0.9rem;
             box-shadow: 0 4px 15px rgba(59, 29, 74, 0.3);
             display: inline-flex; align-items: center; gap: 8px;
         }
+
+        /* --- HOW TO SECTION STYLE --- */
+        .how-to-card {
+            width: 100%; max-width: 420px; background: rgba(255, 255, 255, 0.9);
+            border: 2px solid var(--color-lines); border-radius: 20px;
+            padding: 20px; margin: 25px 0; box-sizing: border-box;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        .how-to-card h3 { margin: 0 0 15px 0; font-size: 1.1rem; color: var(--color-lines); text-align: center; }
+        .how-to-content p { margin: 0 0 12px 0; font-size: 0.85rem; line-height: 1.4; color: #444; text-align: left; }
+        .how-to-content p:last-child { margin-bottom: 0; }
     </style>
 </head>
 <body>
@@ -86,6 +97,16 @@
 
     <a href="pose.html" id="mode-switcher">⇠ POSE TRAINER</a>
 
+    <div class="how-to-card">
+        <h3>🚀 Quick Start Guide</h3>
+        <div class="how-to-content">
+            <p><strong>📱 iOS Users:</strong> You must launch this page using the <strong>Bluefy</strong> app. Standard Safari or Chrome on iPhone/iPad does not support Web Bluetooth.</p>
+            <p><strong>💻 Android/PC:</strong> Use <strong>Google Chrome</strong> for the best experience.</p>
+            <p><strong>🤖 The Tech:</strong> This app uses <strong>Bluetooth UART (Serial)</strong> to talk to your micro:bit. It sends the name of your pose/image as a text string.</p>
+            <p><strong>🔧 Setup:</strong> Use the <strong>Bluetooth UART extension</strong> in micro:bit to set this up!</p>
+        </div>
+    </div>
+
     <script>
         let detector, classifier, video, canvas, ctx;
         let characteristic;
@@ -94,7 +115,6 @@
         let lastSent = "";
         let isSending = false;
 
-        // Use the same UUID from your working Image Mission Control
         const SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
 
         async function init() {
@@ -150,7 +170,6 @@
             requestAnimationFrame(loop);
         }
 
-        // --- FIXED BLUETOOTH LOGIC (SYNCED WITH YOUR WORKING CODE) ---
         async function connectBT() {
             try {
                 logToConsole("Searching for micro:bit...");
@@ -168,7 +187,6 @@
                 logToConsole("Scanning Characteristics...");
                 const chars = await service.getCharacteristics();
                 
-                // Smart search: Find the one that allows writing without response
                 characteristic = chars.find(c => c.properties.writeWithoutResponse);
 
                 if (characteristic) {
@@ -186,11 +204,9 @@
             isSending = true;
             try {
                 const encoder = new TextEncoder();
-                // Matching your working code's write method
                 await characteristic.writeValueWithoutResponse(encoder.encode(text + "\n"));
                 logToConsole("Sent: " + text);
             } catch (e) { logToConsole("TX Error."); }
-            // Pause slightly so we don't overwhelm the micro:bit
             setTimeout(() => { isSending = false; }, 600);
         }
 
@@ -204,7 +220,6 @@
             const reader = new FileReader();
             reader.onload = async (e) => {
                 const content = JSON.parse(e.target.result);
-                // Updated parsing to match the Pose JSON structure
                 const dataset = Object.fromEntries(content.data.map(([label, data, shape]) => [label, tf.tensor2d(data, shape)]));
                 classifier.setClassifierDataset(dataset);
                 labels = content.labels || ["Class A", "Class B"];
