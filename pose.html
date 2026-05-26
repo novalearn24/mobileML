@@ -36,23 +36,9 @@
             overflow: hidden; border: 6px solid #f8f9fa; aspect-ratio: 1/1; background: black;
             box-shadow: 0 15px 35px rgba(0,0,0,0.1);
         }
-
-        video, canvas { 
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%; 
-            object-fit: cover; 
-        }
-
+        video, canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
         video { transform: scaleX(-1); }
-
-        canvas { 
-            z-index: 10; 
-            pointer-events: none; 
-            transform: scaleX(-1); 
-        }
+        canvas { z-index: 10; pointer-events: none; transform: scaleX(-1); }
 
         #live-counter {
             position: absolute; bottom: 15px; left: 15px;
@@ -70,53 +56,12 @@
             box-sizing: border-box; box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         }
 
-        .toolbar { 
-            display: flex; 
-            flex-wrap: wrap; 
-            justify-content: center; 
-            gap: 8px; 
-            margin-bottom: 15px; 
-            width: 100%; 
-            max-width: 420px; 
-        }
+        .toolbar { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 15px; width: 100%; max-width: 420px; }
+        .setup-btn { background: #fff; border: 2px solid #f0f0f0; padding: 10px 14px; border-radius: 10px; font-size: 0.75rem; font-weight: 700; flex: 1; min-width: 80px; cursor: pointer;}
 
-        .setup-btn { 
-            background: #fff; 
-            border: 2px solid #f0f0f0; 
-            padding: 10px 14px; 
-            border-radius: 10px; 
-            font-size: 0.75rem; 
-            font-weight: 700; 
-            flex: 1; 
-            min-width: 80px; 
-            cursor: pointer;
-        }
-
-        .training-grid { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; 
-            gap: 12px; 
-            width: 100%; 
-            max-width: 420px; 
-            padding-bottom: 10px;
-        }
-
-        .label-wrapper { 
-            position: relative; 
-            width: 100%; 
-            display: flex; 
-            flex-direction: column; 
-            gap: 8px; 
-        }
-
-        .pencil-icon { 
-            position: absolute; 
-            right: 12px; 
-            top: 12px; 
-            font-size: 1rem; 
-            pointer-events: none; 
-            opacity: 0.6; 
-        }
+        .training-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; max-width: 420px; padding-bottom: 10px;}
+        .label-wrapper { position: relative; width: 100%; display: flex; flex-direction: column; gap: 8px; }
+        .pencil-icon { position: absolute; right: 12px; top: 12px; font-size: 1rem; pointer-events: none; opacity: 0.6; }
 
         .label-input {
             width: 100%; border: 2px solid #ddd; border-radius: 12px;
@@ -131,31 +76,11 @@
             touch-action: none; -webkit-user-select: none; user-select: none;
             box-shadow: 0 6px 10px rgba(0,0,0,0.12); cursor: pointer;
         }
+        #btn-bg { background: var(--color-bg-btn); grid-column: span 2; padding: 25px; margin-top: 5px; }
+        #btn-0 { background: var(--color-class-a); color: #333; }
+        #btn-1 { background: var(--color-class-b); }
 
-        #btn-bg { 
-            background: var(--color-bg-btn); 
-            grid-column: span 2; 
-            padding: 25px; 
-            margin-top: 5px; 
-        }
-
-        #btn-0 { 
-            background: var(--color-class-a); 
-            color: #333; 
-        }
-
-        #btn-1 { 
-            background: var(--color-class-b); 
-        }
-
-        .nav-container { 
-            display: flex; 
-            gap: 10px; 
-            margin: 25px 0; 
-            width: 100%; 
-            max-width: 420px; 
-        }
-
+        .nav-container { display: flex; gap: 10px; margin: 25px 0; width: 100%; max-width: 420px; }
         .mode-btn {
             flex: 1; padding: 12px 10px; border-radius: 30px;
             background: var(--color-lines); color: white;
@@ -165,567 +90,230 @@
             text-align: center;
         }
 
-        #loading-overlay { 
-            position: fixed; 
-            inset: 0; 
-            background: white; 
-            display: flex; 
-            flex-direction: column; 
-            justify-content: center; 
-            align-items: center; 
-            z-index: 4000; 
-        }
+        #loading-overlay { position: fixed; inset: 0; background: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 4000; }
     </style>
 </head>
-
 <body>
 
-<div id="loading-overlay">
-    <p style="font-weight:700;">Powering Up AI (MOBILE POSE)...</p>
-</div>
+    <div id="loading-overlay"><p style="font-weight:700;">Powering Up AI (MOBILE POSE)...</p></div>
 
-<h2>📱 mobileML - Pose</h2>
-
-<div id="video-container">
-    <video autoplay playsinline muted id="webcam"></video>
-    <canvas id="canvas"></canvas>
-    <div id="live-counter">0</div>
-</div>
-
-<div id="status-bar">
-    <span id="prediction" style="font-size: 1.4rem; font-weight: 900; color: var(--color-lines);">
-        Ready to Train
-    </span>
-
-    <span id="confidence" style="font-size: 0.8rem; color: #636e72; margin-top: 6px;">
-        Need 50 images per class
-    </span>
-</div>
-
-<div class="toolbar">
-    <button class="setup-btn" onclick="toggleCamera()">🔄 Flip Camera</button>
-    <button class="setup-btn" onclick="saveModel()">💾 Save Model</button>
-    <button class="setup-btn" onclick="document.getElementById('load-file').click()">📂 Upload Model</button>
-    <button class="setup-btn" style="color: #e94e24;" onclick="resetModel()">🗑️ Reset</button>
-
-    <input type="file"
-           id="load-file"
-           style="display:none"
-           onchange="loadModel(event)">
-</div>
-
-<div class="training-grid">
-
-    <div class="label-wrapper">
-        <span class="pencil-icon">✏️</span>
-        <input type="text"
-               id="label-0"
-               class="label-input"
-               value="Class A"
-               oninput="updateBtnText(0)">
+    <h2>📱 mobileML - Pose</h2>
+    
+    <div id="video-container">
+        <video autoplay playsinline muted id="webcam"></video>
+        <canvas id="canvas"></canvas>
+        <div id="live-counter">0</div>
     </div>
 
-    <div class="label-wrapper">
-        <span class="pencil-icon">✏️</span>
-        <input type="text"
-               id="label-1"
-               class="label-input"
-               value="Class B"
-               oninput="updateBtnText(1)">
+    <div id="status-bar">
+        <span id="prediction" style="font-size: 1.4rem; font-weight: 900; color: var(--color-lines);">Ready to Train</span>
+        <span id="confidence" style="font-size: 0.8rem; color: #636e72; margin-top: 6px;">Need 50 images per class</span>
     </div>
 
-    <button class="train-btn" id="btn-0">
-        HOLD:
-        <span id="btn-txt-0">Class A</span><br>
-        <span id="count-0">0</span>
-    </button>
+    <div class="toolbar">
+        <button class="setup-btn" onclick="toggleCamera()">🔄 Flip Camera</button>
+        <button class="setup-btn" onclick="saveModel()">💾 Save Model</button>
+        <button class="setup-btn" onclick="document.getElementById('load-file').click()">📂 Upload Model</button>
+        <button class="setup-btn" style="color: #e94e24;" onclick="resetModel()">🗑️ Reset</button>
+        <input type="file" id="load-file" style="display:none" onchange="loadModel(event)">
+    </div>
 
-    <button class="train-btn" id="btn-1">
-        HOLD:
-        <span id="btn-txt-1">Class B</span><br>
-        <span id="count-1">0</span>
-    </button>
+    <div class="training-grid">
+        <div class="label-wrapper">
+            <span class="pencil-icon">✏️</span>
+            <input type="text" id="label-0" class="label-input" value="Class A" oninput="updateBtnText(0)">
+        </div>
+        <div class="label-wrapper">
+            <span class="pencil-icon">✏️</span>
+            <input type="text" id="label-1" class="label-input" value="Class B" oninput="updateBtnText(1)">
+        </div>
+        
+        <button class="train-btn" id="btn-0">HOLD: <span id="btn-txt-0">Class A</span><br><span id="count-0">0</span></button>
+        <button class="train-btn" id="btn-1">HOLD: <span id="btn-txt-1">Class B</span><br><span id="count-1">0</span></button>
+        <button class="train-btn" id="btn-bg">HOLD: Background / Neutral<br><span id="count-bg">0</span></button>
+    </div>
 
-    <button class="train-btn" id="btn-bg">
-        HOLD: Background / Neutral<br>
-        <span id="count-bg">0</span>
-    </button>
+    <div class="nav-container">
+        <a href="index.html" class="mode-btn">⇠ IMAGE TRAINER</a>
+        <a href="pose-missioncontrol.html" class="mode-btn">POSE MISSION ⇢</a>
+    </div>
 
-</div>
+    <script>
+        let detector, classifier, video, canvas, ctx;
+        let counts = { 0: 0, 1: 0, bg: 0 };
+        let timer = null;
+        let isTraining = false;
+        let currentFacingMode = 'user';
+        let lastInferenceTime = 0;
+        
+        const MIN_SAMPLES = 50;
+        const TARGET_FPS = 25; // Optimized for mobile battery/heat
+        const classColors = { '0': '#a4c639', '1': '#e94e24', 'bg': '#7f8c8d' };
 
-<div class="nav-container">
-    <a href="index.html" class="mode-btn">⇠ IMAGE TRAINER</a>
-    <a href="pose-missioncontrol.html" class="mode-btn">POSE MISSION ⇢</a>
-</div>
-
-<script>
-
-let detector, classifier, video, canvas, ctx;
-let counts = { 0: 0, 1: 0, bg: 0 };
-
-let timer = null;
-let isTraining = false;
-
-let currentFacingMode = 'user';
-
-let lastInferenceTime = 0;
-let isLoadingModel = false;
-let isInferring = false;
-
-const MIN_SAMPLES = 50;
-const TARGET_FPS = 25;
-
-const classColors = {
-    '0': '#a4c639',
-    '1': '#e94e24',
-    'bg': '#7f8c8d'
-};
-
-async function setupWebcam() {
-
-    if (video.srcObject) {
-        video.srcObject.getTracks().forEach(track => track.stop());
-    }
-
-    const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: currentFacingMode },
-        audio: false
-    });
-
-    video.srcObject = stream;
-
-    return new Promise(resolve => {
-        video.onloadedmetadata = () => {
-            resolve();
-        };
-    });
-}
-
-async function toggleCamera() {
-
-    currentFacingMode =
-        currentFacingMode === 'user'
-            ? 'environment'
-            : 'user';
-
-    await setupWebcam();
-
-    await video.play();
-}
-
-async function init() {
-
-    video = document.getElementById('webcam');
-    canvas = document.getElementById('canvas');
-    ctx = canvas.getContext('2d');
-
-    await tf.setBackend('webgl');
-
-    classifier = knnClassifier.create();
-
-    try {
-
-        const model =
-            poseDetection.SupportedModels.MoveNet;
-
-        const detectorConfig = {
-            modelType:
-                poseDetection.movenet.modelType
-                .SINGLEPOSE_LIGHTNING
-        };
-
-        detector =
-            await poseDetection.createDetector(
-                model,
-                detectorConfig
-            );
-
-        await setupWebcam();
-
-        video.play();
-
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-
-        document.getElementById('loading-overlay')
-            .style.display = 'none';
-
-        requestAnimationFrame(loop);
-
-    } catch (e) {
-
-        alert("Camera/AI Error: " + e);
-
-    }
-}
-
-async function loop(timestamp) {
-
-    const elapsed = timestamp - lastInferenceTime;
-
-    if (elapsed < (1000 / TARGET_FPS)) {
-        requestAnimationFrame(loop);
-        return;
-    }
-
-    lastInferenceTime = timestamp;
-
-    if (isLoadingModel || isInferring) {
-        requestAnimationFrame(loop);
-        return;
-    }
-
-    isInferring = true;
-
-    try {
-
-        const poses =
-            await detector.estimatePoses(video);
-
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        if (poses.length > 0) {
-
-            const pose = poses[0];
-
-            pose.keypoints.forEach(kp => {
-
-                if (kp.score > 0.4) {
-
-                    ctx.beginPath();
-
-                    ctx.arc(
-                        kp.x,
-                        kp.y,
-                        10,
-                        0,
-                        2 * Math.PI
-                    );
-
-                    ctx.fillStyle = "#00cec9";
-
-                    ctx.fill();
-
-                    ctx.strokeStyle = "white";
-
-                    ctx.lineWidth = 3;
-
-                    ctx.stroke();
-                }
+        async function setupWebcam() {
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: currentFacingMode }, 
+                audio: false 
             });
-
-            if (
-                counts[0] >= MIN_SAMPLES &&
-                counts[1] >= MIN_SAMPLES &&
-                counts['bg'] >= MIN_SAMPLES
-            ) {
-
-                const feat = tf.tensor2d(
-                    pose.keypoints
-                        .map(k => [k.x, k.y])
-                        .flat(),
-                    [1, 34]
-                );
-
-                const res =
-                    await classifier.predictClass(feat);
-
-                if (res.confidences[res.label] > 0.6) {
-
-                    const labelName =
-                        res.label === 'bg'
-                            ? 'Neutral'
-                            : document.getElementById(
-                                'label-' + res.label
-                            ).value;
-
-                    document.getElementById('prediction')
-                        .innerHTML =
-                        `<span style="color:#00cec9; font-size:0.8rem;">DETECTED:</span><br>${labelName.toUpperCase()}`;
-
-                    document.getElementById('confidence')
-                        .innerText =
-                        Math.floor(
-                            res.confidences[res.label] * 100
-                        ) + "% Match";
-                }
-
-                feat.dispose();
-
-            } else {
-
-                document.getElementById('prediction')
-                    .innerText = "Training Mode";
-
-                document.getElementById('confidence')
-                    .innerText =
-                    `Req: A(${counts[0]}/50) B(${counts[1]}/50) BG(${counts['bg']}/50)`;
-            }
+            video.srcObject = stream;
         }
 
-    } finally {
-
-        isInferring = false;
-    }
-
-    requestAnimationFrame(loop);
-}
-
-async function train(id) {
-
-    if (isTraining || isLoadingModel) return;
-
-    isTraining = true;
-
-    try {
-
-        const poses =
-            await detector.estimatePoses(video);
-
-        if (poses.length > 0) {
-
-            const feat = tf.tensor2d(
-                poses[0].keypoints
-                    .map(k => [k.x, k.y])
-                    .flat(),
-                [1, 34]
-            );
-
-            classifier.addExample(feat, id);
-
-            counts[id]++;
-
-            document.getElementById(
-                'count-' + id
-            ).innerText = counts[id];
-
-            const counter =
-                document.getElementById('live-counter');
-
-            counter.style.display = 'flex';
-
-            counter.style.backgroundColor =
-                classColors[id];
-
-            counter.style.color =
-                id === '0'
-                    ? '#333'
-                    : 'white';
-
-            counter.innerText = counts[id];
-
-            feat.dispose();
+        async function toggleCamera() {
+            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            await setupWebcam();
         }
 
-    } finally {
+        async function init() {
+            video = document.getElementById('webcam');
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d');
 
-        isTraining = false;
-    }
-}
-
-function updateBtnText(id) {
-
-    document.getElementById(
-        'btn-txt-' + id
-    ).innerText =
-        document.getElementById(
-            'label-' + id
-        ).value;
-}
-
-function saveModel() {
-
-    const dataset =
-        classifier.getClassifierDataset();
-
-    const datasetObj =
-        Object.entries(dataset).map(
-            ([label, data]) => [
-                label,
-                Array.from(data.dataSync()),
-                data.shape
-            ]
-        );
-
-    const a =
-        document.createElement('a');
-
-    a.href = URL.createObjectURL(
-        new Blob(
-            [JSON.stringify({
-                data: datasetObj,
-                labels: [
-                    document.getElementById('label-0').value,
-                    document.getElementById('label-1').value
-                ],
-                counts: counts
-            })],
-            {type: "application/json"}
-        )
-    );
-
-    a.download = "pose_model.json";
-
-    a.click();
-}
-
-async function loadModel(event) {
-
-    isLoadingModel = true;
-
-    document.getElementById('prediction')
-        .innerText = "Loading Model...";
-
-    try {
-
-        const reader = new FileReader();
-
-        reader.onload = async (e) => {
+            // Force WebGL backend for GPU acceleration
+            await tf.setBackend('webgl');
+            classifier = knnClassifier.create();
 
             try {
+                // Explicitly use Lightning model for mobile performance
+                const model = poseDetection.SupportedModels.MoveNet;
+                const detectorConfig = { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING };
+                detector = await poseDetection.createDetector(model, detectorConfig);
+                
+                await setupWebcam();
+                video.onloadedmetadata = () => {
+                    video.play();
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    document.getElementById('loading-overlay').style.display = 'none';
+                    requestAnimationFrame(loop);
+                };
+            } catch (e) { alert("Camera/AI Error: " + e); }
+        }
 
-                const content =
-                    JSON.parse(e.target.result);
-
-                classifier.clearAllClasses();
-
-                await tf.nextFrame();
-
-                const dataset = {};
-
-                for (const [label, data, shape]
-                    of content.data) {
-
-                    await tf.nextFrame();
-
-                    dataset[label] =
-                        tf.tensor2d(data, shape);
-                }
-
-                classifier.setClassifierDataset(dataset);
-
-                document.getElementById('label-0')
-                    .value = content.labels[0];
-
-                document.getElementById('label-1')
-                    .value = content.labels[1];
-
-                counts =
-                    content.counts ||
-                    {0:50,1:50,bg:50};
-
-                ['0','1','bg'].forEach(id =>
-                    document.getElementById(
-                        'count-'+id
-                    ).innerText = counts[id]
-                );
-
-                updateBtnText(0);
-                updateBtnText(1);
-
-                document.getElementById('prediction')
-                    .innerText = "Model Ready";
-
-                document.getElementById('confidence')
-                    .innerText = "Upload Complete";
-
-                alert("Model Loaded!");
-
-            } catch(err) {
-
-                console.error(err);
-
-                alert("Model load failed");
-
-            } finally {
-
-                isLoadingModel = false;
+        async function loop(timestamp) {
+            // FPS Throttle Logic
+            const elapsed = timestamp - lastInferenceTime;
+            if (elapsed < (1000 / TARGET_FPS)) {
+                requestAnimationFrame(loop);
+                return;
             }
-        };
+            lastInferenceTime = timestamp;
 
-        reader.readAsText(event.target.files[0]);
+            const poses = await detector.estimatePoses(video);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    } catch(err) {
+            if (poses.length > 0) {
+                const pose = poses[0];
+                pose.keypoints.forEach(kp => {
+                    if (kp.score > 0.4) {
+                        ctx.beginPath();
+                        ctx.arc(kp.x, kp.y, 10, 0, 2*Math.PI);
+                        ctx.fillStyle = "#00cec9";
+                        ctx.fill();
+                        ctx.strokeStyle = "white"; ctx.lineWidth = 3; ctx.stroke();
+                    }
+                });
 
-        console.error(err);
+                if (counts[0] >= MIN_SAMPLES && counts[1] >= MIN_SAMPLES && counts['bg'] >= MIN_SAMPLES) {
+                    const feat = tf.tensor2d(pose.keypoints.map(k => [k.x, k.y]).flat(), [1, 34]);
+                    const res = await classifier.predictClass(feat);
+                    
+                    if(res.confidences[res.label] > 0.6) {
+                        const labelName = res.label === 'bg' ? 'Neutral' : document.getElementById('label-' + res.label).value;
+                        document.getElementById('prediction').innerHTML = `<span style="color:#00cec9; font-size:0.8rem;">DETECTED:</span><br>${labelName.toUpperCase()}`;
+                        document.getElementById('confidence').innerText = Math.floor(res.confidences[res.label] * 100) + "% Match";
+                    }
+                    feat.dispose();
+                } else {
+                    document.getElementById('prediction').innerText = "Training Mode";
+                    document.getElementById('confidence').innerText = `Req: A(${counts[0]}/50) B(${counts[1]}/50) BG(${counts['bg']}/50)`;
+                }
+            }
+            requestAnimationFrame(loop);
+        }
 
-        isLoadingModel = false;
-    }
-}
+        async function train(id) {
+            if (isTraining) return;
+            isTraining = true;
+            try {
+                const poses = await detector.estimatePoses(video);
+                if (poses.length > 0) {
+                    const feat = tf.tensor2d(poses[0].keypoints.map(k => [k.x, k.y]).flat(), [1, 34]);
+                    classifier.addExample(feat, id);
+                    counts[id]++;
+                    document.getElementById('count-'+id).innerText = counts[id];
+                    
+                    const counter = document.getElementById('live-counter');
+                    counter.style.display = 'flex';
+                    counter.style.backgroundColor = classColors[id];
+                    counter.style.color = id === '0' ? '#333' : 'white';
+                    counter.innerText = counts[id];
+                    feat.dispose();
+                }
+            } finally {
+                isTraining = false;
+            }
+        }
 
-function resetModel() {
+        function updateBtnText(id) {
+            document.getElementById('btn-txt-' + id).innerText = document.getElementById('label-' + id).value;
+        }
 
-    if(confirm("Reset everything?")) {
+        function saveModel() {
+            const dataset = classifier.getClassifierDataset();
+            const datasetObj = Object.entries(dataset).map(([label, data]) => [label, Array.from(data.dataSync()), data.shape]);
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([JSON.stringify({data: datasetObj, labels: [document.getElementById('label-0').value, document.getElementById('label-1').value], counts: counts})], {type: "application/json"}));
+            a.download = "pose_model.json"; a.click();
+        }
 
-        classifier.clearAllClasses();
+        async function loadModel(event) {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const content = JSON.parse(e.target.result);
+                const dataset = Object.fromEntries(content.data.map(([label, data, shape]) => [label, tf.tensor2d(data, shape)]));
+                classifier.setClassifierDataset(dataset);
+                document.getElementById('label-0').value = content.labels[0];
+                document.getElementById('label-1').value = content.labels[1];
+                counts = content.counts || {0:50, 1:50, bg:50}; 
+                ['0','1','bg'].forEach(id => document.getElementById('count-'+id).innerText = counts[id]);
+                updateBtnText(0); updateBtnText(1);
+                alert("Model Loaded!");
+            };
+            reader.readAsText(event.target.files[0]);
+        }
 
-        counts = {
-            0:0,
-            1:0,
-            bg:0
-        };
+        function resetModel() {
+            if(confirm("Reset everything?")) {
+                classifier.clearAllClasses();
+                counts = {0:0, 1:0, bg:0};
+                ['0','1','bg'].forEach(id => document.getElementById('count-'+id).innerText = '0');
+                document.getElementById('prediction').innerText = "Ready to Train";
+                document.getElementById('confidence').innerText = "Need 50 images per class";
+                document.getElementById('live-counter').style.display = 'none';
+            }
+        }
 
-        ['0','1','bg'].forEach(id =>
-            document.getElementById(
-                'count-'+id
-            ).innerText = '0'
-        );
+        ['0', '1', 'bg'].forEach(id => {
+            const b = document.getElementById('btn-'+id);
+            const start = (e) => { 
+                e.preventDefault(); 
+                if (timer) clearInterval(timer);
+                timer = setInterval(() => train(id), 100); 
+            };
+            const stop = (e) => { 
+                if (e) e.preventDefault();
+                clearInterval(timer); 
+                timer = null;
+                document.getElementById('live-counter').style.display = 'none'; 
+            };
+            b.addEventListener('pointerdown', start);
+            b.addEventListener('pointerup', stop);
+            b.addEventListener('pointerleave', stop);
+            b.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); return false; };
+        });
 
-        document.getElementById('prediction')
-            .innerText = "Ready to Train";
-
-        document.getElementById('confidence')
-            .innerText = "Need 50 images per class";
-
-        document.getElementById('live-counter')
-            .style.display = 'none';
-    }
-}
-
-['0', '1', 'bg'].forEach(id => {
-
-    const b =
-        document.getElementById('btn-'+id);
-
-    const start = (e) => {
-
-        e.preventDefault();
-
-        if (timer) clearInterval(timer);
-
-        timer =
-            setInterval(() => train(id), 100);
-    };
-
-    const stop = (e) => {
-
-        if (e) e.preventDefault();
-
-        clearInterval(timer);
-
-        timer = null;
-
-        document.getElementById(
-            'live-counter'
-        ).style.display = 'none';
-    };
-
-    b.addEventListener('pointerdown', start);
-
-    b.addEventListener('pointerup', stop);
-
-    b.addEventListener('pointerleave', stop);
-
-    b.oncontextmenu = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-    };
-});
-
-init();
-
-</script>
-
+        init();
+    </script>
 </body>
 </html>
+
