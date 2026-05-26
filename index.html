@@ -179,13 +179,20 @@
 
         async function setupCamera() {
             try {
-                if (webcamElement.srcObject) { webcamElement.srcObject.getTracks().forEach(track => track.stop()); }
+                if (webcamElement.srcObject) { 
+                    webcamElement.srcObject.getTracks().forEach(track => track.stop()); 
+                }
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { facingMode: currentFacingMode }, 
                     audio: false 
                 });
                 webcamElement.srcObject = stream;
-                return new Promise(resolve => webcamElement.onloadedmetadata = () => { webcamElement.play(); resolve(); });
+                return new Promise(resolve => {
+                    webcamElement.onloadedmetadata = () => {
+                        webcamElement.play();
+                        resolve();
+                    };
+                });
             } catch (e) { alert("Camera error!"); }
         }
 
@@ -203,17 +210,14 @@
         function updateCounters() {
             const label0 = document.getElementById('label-0').value || "Class A";
             const label1 = document.getElementById('label-1').value || "Class B";
-
             const btn0 = document.getElementById('btn-0');
             const btn1 = document.getElementById('btn-1');
             const btnBg = document.getElementById('btn-bg');
 
             btn0.disabled = counts[0] >= MAX_IMAGES;
             btn0.innerHTML = `${counts[0] >= MAX_IMAGES ? "MAXED" : "HOLD"}: ${label0}<br>${counts[0]} images`;
-
             btn1.disabled = counts[1] >= MAX_IMAGES;
             btn1.innerHTML = `${counts[1] >= MAX_IMAGES ? "MAXED" : "HOLD"}: ${label1}<br>${counts[1]} images`;
-
             btnBg.disabled = counts.bg >= MAX_IMAGES;
             btnBg.innerHTML = `${counts.bg >= MAX_IMAGES ? "MAXED" : "HOLD"}: Background<br>${counts.bg} images`;
 
@@ -240,22 +244,17 @@
 
         async function addExample(classId) {
             if (!net || counts[classId] >= MAX_IMAGES) return;
-            
             tf.tidy(() => {
                 const img = tf.browser.fromPixels(webcamElement);
                 classifier.addExample(net.infer(img, 'conv_preds'), classId);
             });
-            
             counts[classId]++;
-            
             const bubble = document.getElementById('live-counter');
             const num = document.getElementById('bubble-num');
             bubble.style.display = 'flex';
             num.innerText = counts[classId];
-            
             const colors = { 'bg': 'var(--color-bg-btn)', '0': 'var(--color-class-a)', '1': 'var(--color-class-b)' };
             bubble.style.backgroundColor = colors[classId];
-
             updateCounters();
         }
 
@@ -290,24 +289,17 @@
 
         async function runPrediction() {
             while (isPredicting) {
-                if (classifier.getNumClasses() > 0 && !webcamElement.paused) {
+                // state 2 means HAVE_CURRENT_DATA, ensures camera isn't frozen
+                if (classifier.getNumClasses() > 0 && webcamElement.readyState >= 2) {
                     try {
-                        const activation = tf.tidy(() => {
+                        const result = await tf.tidy(async () => {
                             const img = tf.browser.fromPixels(webcamElement);
-                            return net.infer(img, 'conv_preds');
+                            return await classifier.predictClass(net.infer(img, 'conv_preds'));
                         });
-                        
-                        const result = await classifier.predictClass(activation);
-                        activation.dispose();
-
-                        const labels = { 
-                            bg: 'Background', 
-                            0: document.getElementById('label-0').value, 
-                            1: document.getElementById('label-1').value 
-                        };
+                        const labels = { bg: 'Background', 0: document.getElementById('label-0').value, 1: document.getElementById('label-1').value };
                         document.getElementById('prediction').innerText = labels[result.label];
                         document.getElementById('confidence').innerText = `${Math.floor(result.confidences[result.label]*100)}% Confidence`;
-                    } catch(e) { console.error(e); }
+                    } catch(e) { }
                 }
                 await tf.nextFrame();
             }
@@ -359,4 +351,3 @@
     </script>
 </body>
 </html>
-
