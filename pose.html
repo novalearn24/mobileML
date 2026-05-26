@@ -80,7 +80,6 @@
         #btn-0 { background: var(--color-class-a); color: #333; }
         #btn-1 { background: var(--color-class-b); }
 
-        /* --- NEW NAVIGATION STYLE --- */
         .nav-container {
             display: flex; gap: 10px; margin: 25px 0; width: 100%; max-width: 420px;
         }
@@ -145,7 +144,8 @@
     <script>
         let detector, classifier, video, canvas, ctx;
         let counts = { 0: 0, 1: 0, bg: 0 };
-        let timer;
+        let timer = null;
+        let isTraining = false; // Fix 2: Safety guard
         let currentFacingMode = 'user';
         const MIN_SAMPLES = 50;
 
@@ -204,6 +204,7 @@
                     }
                 });
 
+                // Prediction logic
                 if (counts[0] >= MIN_SAMPLES && counts[1] >= MIN_SAMPLES && counts['bg'] >= MIN_SAMPLES) {
                     const feat = tf.tensor2d(pose.keypoints.map(k => [k.x, k.y]).flat(), [1, 34]);
                     const res = await classifier.predictClass(feat);
@@ -223,20 +224,27 @@
         }
 
         async function train(id) {
-            const poses = await detector.estimatePoses(video);
-            if (poses.length > 0) {
-                const feat = tf.tensor2d(poses[0].keypoints.map(k => [k.x, k.y]).flat(), [1, 34]);
-                classifier.addExample(feat, id);
-                counts[id]++;
-                document.getElementById('count-'+id).innerText = counts[id];
-                
-                const counter = document.getElementById('live-counter');
-                counter.style.display = 'flex';
-                counter.style.backgroundColor = classColors[id];
-                counter.style.color = id === '0' ? '#333' : 'white';
-                counter.innerText = counts[id];
-                
-                feat.dispose();
+            if (isTraining) return; // Fix 2: Prevent overlapping requests
+            isTraining = true;
+
+            try {
+                const poses = await detector.estimatePoses(video);
+                if (poses.length > 0) {
+                    const feat = tf.tensor2d(poses[0].keypoints.map(k => [k.x, k.y]).flat(), [1, 34]);
+                    classifier.addExample(feat, id);
+                    counts[id]++;
+                    document.getElementById('count-'+id).innerText = counts[id];
+                    
+                    const counter = document.getElementById('live-counter');
+                    counter.style.display = 'flex';
+                    counter.style.backgroundColor = classColors[id];
+                    counter.style.color = id === '0' ? '#333' : 'white';
+                    counter.innerText = counts[id];
+                    
+                    feat.dispose();
+                }
+            } finally {
+                isTraining = false; // Always reset flag even on error
             }
         }
 
@@ -279,15 +287,30 @@
             }
         }
 
+        // --- Fix 1 & 3: Better Event Listeners ---
         ['0', '1', 'bg'].forEach(id => {
             const b = document.getElementById('btn-'+id);
-            const start = (e) => { e.preventDefault(); timer = setInterval(() => train(id), 100); };
-            const stop = () => { 
+            
+            const start = (e) => { 
+                e.preventDefault(); 
+                if (timer) clearInterval(timer); // Safety check
+                timer = setInterval(() => train(id), 100); 
+            };
+            
+            const stop = (e) => { 
+                if (e) e.preventDefault();
                 clearInterval(timer); 
+                timer = null;
                 document.getElementById('live-counter').style.display = 'none'; 
             };
-            b.addEventListener('touchstart', start); b.addEventListener('touchend', stop);
-            b.addEventListener('mousedown', start); b.addEventListener('mouseup', stop);
+
+            // Use PointerEvents for unified Mouse/Trackpad/Touch handling
+            b.addEventListener('pointerdown', start);
+            b.addEventListener('pointerup', stop);
+            b.addEventListener('pointerleave', stop); // Stop if user slides off button
+
+            // Disable context menu on these buttons to prevent trackpad right-click bugs
+            b.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); return false; };
         });
 
         init();
