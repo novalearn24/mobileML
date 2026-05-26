@@ -179,14 +179,19 @@
 
         async function setupCamera() {
             try {
+                // Kill tracks first
                 if (webcamElement.srcObject) { 
                     webcamElement.srcObject.getTracks().forEach(track => track.stop()); 
+                    webcamElement.srcObject = null;
                 }
+                
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { facingMode: currentFacingMode }, 
                     audio: false 
                 });
+                
                 webcamElement.srcObject = stream;
+                
                 return new Promise(resolve => {
                     webcamElement.onloadedmetadata = () => {
                         webcamElement.play();
@@ -289,7 +294,6 @@
 
         async function runPrediction() {
             while (isPredicting) {
-                // state 2 means HAVE_CURRENT_DATA, ensures camera isn't frozen
                 if (classifier.getNumClasses() > 0 && webcamElement.readyState >= 2) {
                     try {
                         const result = await tf.tidy(async () => {
@@ -318,8 +322,16 @@
         async function loadModel(event) {
             const file = event.target.files[0];
             if (!file) return;
+            
             showOverlay("Jumpstarting AI...");
-            isPredicting = false;
+            isPredicting = false; // Stop the loop
+            
+            // 1. Force kill the current camera stream
+            if (webcamElement.srcObject) {
+                webcamElement.srcObject.getTracks().forEach(track => track.stop());
+                webcamElement.srcObject = null;
+            }
+
             const reader = new FileReader();
             reader.onload = async (e) => {
                 const model = JSON.parse(e.target.result);
@@ -327,15 +339,24 @@
                 Object.keys(model.data).forEach((key) => {
                     tensorObj[key] = tf.tensor2d(model.data[key], [model.data[key].length / 1024, 1024]);
                 });
+                
                 classifier.clearAllClasses();
                 classifier.setClassifierDataset(tensorObj);
                 counts = model.counts;
+                
                 if(model.labels) {
                     document.getElementById('label-0').value = model.labels[0];
                     document.getElementById('label-1').value = model.labels[1];
                 }
+                
                 updateCounters();
+                
+                // 2. Add a tiny delay to ensure hardware is released
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
+                // 3. Re-init camera
                 await setupCamera();
+                
                 hideOverlay();
                 alert("Model Ready!");
             };
