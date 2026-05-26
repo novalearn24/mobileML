@@ -1,18 +1,3 @@
-This is a classic issue when bringing machine learning to the browser. Your code is very close to perfect, but there are a few hidden performance traps when running TensorFlow.js (TFJS) on mobile devices.
-
-Here is exactly why your app is lagging on phones and tablets:
-
-* **The `tf.tidy` + `async` Memory Leak:** In your `runPrediction` loop, you placed an `async` function inside `tf.tidy()`. `tf.tidy` is strictly synchronous and doesn't wait for promises. This means it silently fails to clean up your tensors, causing a massive memory leak that quickly chokes mobile devices.
-* **Camera Resolution:** By default, `getUserMedia` requests the highest available camera resolution (often 1080p or 4K on modern phones). MobileNet only needs 224x224 pixels. Processing millions of extra pixels per frame fries the device's CPU.
-* **60 FPS Thermal Throttling:** Running prediction continuously at 60 FPS (`await tf.nextFrame()`) will cause mobile devices to overheat and throttle their processors. Dropping this to ~15 FPS is visually identical for UI but cuts the workload by 75%.
-* **Interval Stacking:** Your training loop uses `setInterval(..., 100)`. If a phone takes 150ms to process an image, those intervals "stack up" and freeze the main thread. We need to switch to a recursive `setTimeout` so it only queues the next image *after* the previous one finishes.
-* **DOM Thrashing:** You are querying the DOM (`document.getElementById`) inside a fast loop. Caching these elements outside the loop speeds things up.
-
-Here is your fully optimized code with all features kept exactly intact.
-
-### The Optimized Code
-
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
