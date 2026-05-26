@@ -179,7 +179,6 @@
 
         async function setupCamera() {
             try {
-                // Kill tracks first
                 if (webcamElement.srcObject) { 
                     webcamElement.srcObject.getTracks().forEach(track => track.stop()); 
                     webcamElement.srcObject = null;
@@ -249,6 +248,9 @@
 
         async function addExample(classId) {
             if (!net || counts[classId] >= MAX_IMAGES) return;
+            // Only add if video is actually moving
+            if (webcamElement.readyState < 2 || webcamElement.currentTime === 0) return;
+
             tf.tidy(() => {
                 const img = tf.browser.fromPixels(webcamElement);
                 classifier.addExample(net.infer(img, 'conv_preds'), classId);
@@ -285,8 +287,6 @@
                     runPrediction();
                 } else if (!isReady) {
                     isPredicting = false;
-                    document.getElementById('prediction').innerText = "Waiting...";
-                    document.getElementById('confidence').innerText = "Add 50 images per class";
                 }
                 await new Promise(r => setTimeout(r, 600));
             }
@@ -294,7 +294,8 @@
 
         async function runPrediction() {
             while (isPredicting) {
-                if (classifier.getNumClasses() > 0 && webcamElement.readyState >= 2) {
+                // IMPORTANT: Only predict if the camera has actually started ticking forward
+                if (classifier.getNumClasses() > 0 && webcamElement.readyState >= 2 && webcamElement.currentTime > 0) {
                     try {
                         const result = await tf.tidy(async () => {
                             const img = tf.browser.fromPixels(webcamElement);
@@ -324,13 +325,14 @@
             if (!file) return;
             
             showOverlay("Jumpstarting AI...");
-            isPredicting = false; // Stop the loop
+            isPredicting = false; 
             
-            // 1. Force kill the current camera stream
+            // Hard kill camera
             if (webcamElement.srcObject) {
                 webcamElement.srcObject.getTracks().forEach(track => track.stop());
                 webcamElement.srcObject = null;
             }
+            webcamElement.load(); // Forces player to empty state
 
             const reader = new FileReader();
             reader.onload = async (e) => {
@@ -351,12 +353,10 @@
                 
                 updateCounters();
                 
-                // 2. Add a tiny delay to ensure hardware is released
-                await new Promise(resolve => setTimeout(resolve, 300));
+                // Allow the browser to settle after heavy JSON parsing
+                await new Promise(resolve => setTimeout(resolve, 500));
                 
-                // 3. Re-init camera
                 await setupCamera();
-                
                 hideOverlay();
                 alert("Model Ready!");
             };
