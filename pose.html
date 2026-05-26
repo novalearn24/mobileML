@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>mobileML - Pose (Optimized)</title>
+    <title>mobileML - Pose (Fluid iPad Version)</title>
     
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
@@ -147,12 +147,12 @@
         let lastInferenceTime = 0;
         
         const MIN_SAMPLES = 50;
-        const TARGET_FPS = 25; // Optimized for mobile battery/heat
+        const TARGET_FPS = 25; 
         const classColors = { '0': '#a4c639', '1': '#e94e24', 'bg': '#7f8c8d' };
 
         async function setupWebcam() {
             const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: currentFacingMode }, 
+                video: { facingMode: currentFacingMode, width: 480, height: 480 }, 
                 audio: false 
             });
             video.srcObject = stream;
@@ -168,12 +168,10 @@
             canvas = document.getElementById('canvas');
             ctx = canvas.getContext('2d');
 
-            // Force WebGL backend for GPU acceleration
             await tf.setBackend('webgl');
             classifier = knnClassifier.create();
 
             try {
-                // Explicitly use Lightning model for mobile performance
                 const model = poseDetection.SupportedModels.MoveNet;
                 const detectorConfig = { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING };
                 detector = await poseDetection.createDetector(model, detectorConfig);
@@ -190,7 +188,6 @@
         }
 
         async function loop(timestamp) {
-            // FPS Throttle Logic
             const elapsed = timestamp - lastInferenceTime;
             if (elapsed < (1000 / TARGET_FPS)) {
                 requestAnimationFrame(loop);
@@ -198,32 +195,47 @@
             }
             lastInferenceTime = timestamp;
 
+            if (video.readyState < 2) {
+                requestAnimationFrame(loop);
+                return;
+            }
+
             const poses = await detector.estimatePoses(video);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             if (poses.length > 0) {
                 const pose = poses[0];
+                
+                // Draw skeleton points
                 pose.keypoints.forEach(kp => {
                     if (kp.score > 0.4) {
                         ctx.beginPath();
-                        ctx.arc(kp.x, kp.y, 10, 0, 2*Math.PI);
+                        ctx.arc(kp.x, kp.y, 8, 0, 2*Math.PI);
                         ctx.fillStyle = "#00cec9";
                         ctx.fill();
-                        ctx.strokeStyle = "white"; ctx.lineWidth = 3; ctx.stroke();
+                        ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke();
                     }
                 });
 
-                if (counts[0] >= MIN_SAMPLES && counts[1] >= MIN_SAMPLES && counts['bg'] >= MIN_SAMPLES) {
-                    const feat = tf.tensor2d(pose.keypoints.map(k => [k.x, k.y]).flat(), [1, 34]);
-                    const res = await classifier.predictClass(feat);
-                    
-                    if(res.confidences[res.label] > 0.6) {
-                        const labelName = res.label === 'bg' ? 'Neutral' : document.getElementById('label-' + res.label).value;
-                        document.getElementById('prediction').innerHTML = `<span style="color:#00cec9; font-size:0.8rem;">DETECTED:</span><br>${labelName.toUpperCase()}`;
-                        document.getElementById('confidence').innerText = Math.floor(res.confidences[res.label] * 100) + "% Match";
-                    }
-                    feat.dispose();
-                } else {
+                // Logic: Only predict if we actually have data in the classifier
+                const canPredict = classifier.getNumClasses() > 0 && 
+                                  counts[0] >= MIN_SAMPLES && 
+                                  counts[1] >= MIN_SAMPLES && 
+                                  counts['bg'] >= MIN_SAMPLES;
+
+                if (canPredict && !isTraining) {
+                    // tf.tidy is vital for iPad to prevent memory bloat crashes
+                    tf.tidy(() => {
+                        const feat = tf.tensor2d(pose.keypoints.map(k => [k.x, k.y]).flat(), [1, 34]);
+                        classifier.predictClass(feat).then(res => {
+                            if(res.confidences[res.label] > 0.5) {
+                                const labelName = res.label === 'bg' ? 'Neutral' : (document.getElementById('label-' + res.label)?.value || "Detected");
+                                document.getElementById('prediction').innerHTML = `<span style="color:#00cec9; font-size:0.8rem;">DETECTED:</span><br>${labelName.toUpperCase()}`;
+                                document.getElementById('confidence').innerText = Math.floor(res.confidences[res.label] * 100) + "% Match";
+                            }
+                        });
+                    });
+                } else if (!canPredict) {
                     document.getElementById('prediction').innerText = "Training Mode";
                     document.getElementById('confidence').innerText = `Req: A(${counts[0]}/50) B(${counts[1]}/50) BG(${counts['bg']}/50)`;
                 }
@@ -237,17 +249,17 @@
             try {
                 const poses = await detector.estimatePoses(video);
                 if (poses.length > 0) {
-                    const feat = tf.tensor2d(poses[0].keypoints.map(k => [k.x, k.y]).flat(), [1, 34]);
-                    classifier.addExample(feat, id);
+                    tf.tidy(() => {
+                        const feat = tf.tensor2d(poses[0].keypoints.map(k => [k.x, k.y]).flat(), [1, 34]);
+                        classifier.addExample(feat, id);
+                    });
                     counts[id]++;
                     document.getElementById('count-'+id).innerText = counts[id];
                     
                     const counter = document.getElementById('live-counter');
                     counter.style.display = 'flex';
                     counter.style.backgroundColor = classColors[id];
-                    counter.style.color = id === '0' ? '#333' : 'white';
                     counter.innerText = counts[id];
-                    feat.dispose();
                 }
             } finally {
                 isTraining = false;
@@ -262,24 +274,45 @@
             const dataset = classifier.getClassifierDataset();
             const datasetObj = Object.entries(dataset).map(([label, data]) => [label, Array.from(data.dataSync()), data.shape]);
             const a = document.createElement('a');
-            a.href = URL.createObjectURL(new Blob([JSON.stringify({data: datasetObj, labels: [document.getElementById('label-0').value, document.getElementById('label-1').value], counts: counts})], {type: "application/json"}));
+            const exportData = {
+                data: datasetObj, 
+                labels: [document.getElementById('label-0').value, document.getElementById('label-1').value], 
+                counts: counts
+            };
+            a.href = URL.createObjectURL(new Blob([JSON.stringify(exportData)], {type: "application/json"}));
             a.download = "pose_model.json"; a.click();
         }
 
         async function loadModel(event) {
+            const file = event.target.files[0];
+            if (!file) return;
             const reader = new FileReader();
             reader.onload = async (e) => {
-                const content = JSON.parse(e.target.result);
-                const dataset = Object.fromEntries(content.data.map(([label, data, shape]) => [label, tf.tensor2d(data, shape)]));
-                classifier.setClassifierDataset(dataset);
-                document.getElementById('label-0').value = content.labels[0];
-                document.getElementById('label-1').value = content.labels[1];
-                counts = content.counts || {0:50, 1:50, bg:50}; 
-                ['0','1','bg'].forEach(id => document.getElementById('count-'+id).innerText = counts[id]);
-                updateBtnText(0); updateBtnText(1);
-                alert("Model Loaded!");
+                try {
+                    const content = JSON.parse(e.target.result);
+                    
+                    // Clear existing to avoid memory stack
+                    classifier.clearAllClasses();
+                    
+                    const dataset = Object.fromEntries(content.data.map(([label, data, shape]) => [label, tf.tensor2d(data, shape)]));
+                    classifier.setClassifierDataset(dataset);
+                    
+                    document.getElementById('label-0').value = content.labels[0];
+                    document.getElementById('label-1').value = content.labels[1];
+                    counts = content.counts || {0:50, 1:50, bg:50}; 
+                    
+                    ['0','1','bg'].forEach(id => {
+                        const el = document.getElementById('count-'+id);
+                        if(el) el.innerText = counts[id];
+                    });
+                    
+                    updateBtnText(0); updateBtnText(1);
+                    alert("Model Loaded!");
+                } catch (err) {
+                    alert("Load Error: " + err.message);
+                }
             };
-            reader.readAsText(event.target.files[0]);
+            reader.readAsText(file);
         }
 
         function resetModel() {
@@ -309,7 +342,7 @@
             b.addEventListener('pointerdown', start);
             b.addEventListener('pointerup', stop);
             b.addEventListener('pointerleave', stop);
-            b.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); return false; };
+            b.oncontextmenu = (e) => { e.preventDefault(); return false; };
         });
 
         init();
