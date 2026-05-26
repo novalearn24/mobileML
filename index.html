@@ -17,7 +17,6 @@
             --color-bg-btn: #7f8c8d;  
             --bg-page: #ffffff;
             --text-main: #2d3436;
-            --turquoise: #00cec9;
         }
 
         body { 
@@ -48,7 +47,6 @@
             animation: pulse 0.5s infinite alternate;
         }
         #live-counter span { font-size: 1.4rem; }
-        #live-counter small { font-size: 0.6rem; text-transform: uppercase; }
         @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.05); } }
 
         #status-bar {
@@ -96,9 +94,7 @@
             flex: 1; padding: 12px 10px; border-radius: 30px;
             background: var(--color-lines); color: white;
             text-decoration: none; font-weight: 800; font-size: 0.75rem;
-            box-shadow: 0 4px 15px rgba(59, 29, 74, 0.3);
             display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-            white-space: nowrap;
         }
 
         #limit-pop { 
@@ -118,22 +114,19 @@
 <body>
 
     <div id="loading-overlay"><div class="spinner"></div><p style="margin-top:20px; font-weight:700;">Powering Up AI...</p></div>
-    <div id="action-overlay"><div class="spinner"></div><p id="action-text" style="margin-top:20px; font-weight:700;">Updating Model...</p></div>
+    <div id="action-overlay"><div class="spinner"></div><p id="action-text" style="margin-top:20px; font-weight:700;">Updating...</p></div>
 
     <div id="limit-pop">
-        <p style="font-weight: 800; font-size: 1.1rem; margin-top: 0;">Hi! 👋</p>
-        <p>Each class can have maximum 500 images. Use your final 100 images wisely.</p>
+        <p style="font-weight: 800; font-size: 1.1rem;">Memory Warning</p>
+        <p>Each class can have maximum 500 images.</p>
         <button onclick="this.parentElement.style.display='none'">Got it!</button>
     </div>
 
-    <h2>📱 Mobile AI Trainer - IMAGE</h2>
+    <h2>📱 Mobile AI Trainer</h2>
     
     <div id="video-container">
         <video autoplay playsinline muted id="webcam"></video>
-        <div id="live-counter">
-            <span id="bubble-num">0</span>
-            <small>Images</small>
-        </div>
+        <div id="live-counter"><span id="bubble-num">0</span><small>Images</small></div>
     </div>
 
     <div id="status-bar">
@@ -143,30 +136,23 @@
 
     <div class="toolbar">
         <button class="setup-btn" onclick="toggleCamera()">🔄 Flip Camera</button>
-        <button class="setup-btn" onclick="saveModel()">💾 Save Model</button>
-        <button class="setup-btn" onclick="document.getElementById('load-file').click()">📂 Upload Model</button>
+        <button class="setup-btn" onclick="saveModel()">💾 Save</button>
+        <button class="setup-btn" onclick="document.getElementById('load-file').click()">📂 Upload</button>
         <button class="setup-btn" style="color: #e94e24;" onclick="resetModel()">🗑️ Reset</button>
         <input type="file" id="load-file" style="display:none" onchange="loadModel(event)">
     </div>
 
     <div class="training-grid">
-        <div class="label-wrapper">
-            <span class="pencil-icon">✏️</span>
-            <input type="text" id="label-0" class="label-input" value="Class A" oninput="updateCounters()">
-        </div>
-        <div class="label-wrapper">
-            <span class="pencil-icon">✏️</span>
-            <input type="text" id="label-1" class="label-input" value="Class B" oninput="updateCounters()">
-        </div>
-
+        <div class="label-wrapper"><span class="pencil-icon">✏️</span><input type="text" id="label-0" class="label-input" value="Class A" oninput="updateCounters()"></div>
+        <div class="label-wrapper"><span class="pencil-icon">✏️</span><input type="text" id="label-1" class="label-input" value="Class B" oninput="updateCounters()"></div>
         <button class="train-btn" id="btn-0">HOLD: Class A<br>0 images</button>
         <button class="train-btn" id="btn-1">HOLD: Class B<br>0 images</button>
         <button class="train-btn" id="btn-bg">HOLD: Background<br>0 images</button>
     </div>
 
     <div class="nav-footer">
-        <a href="missioncontrol.html" class="mode-switcher">⇠ IMAGE MISSION </a>
-        <a href="pose.html" class="mode-switcher">POSE TRAINER ⇢</a>
+        <a href="missioncontrol.html" class="mode-switcher">⇠ MISSION </a>
+        <a href="pose.html" class="mode-switcher">POSE ⇢</a>
     </div>
 
     <script>
@@ -175,7 +161,6 @@
         let net, timer, counts = { bg: 0, 0: 0, 1: 0 }, currentFacingMode = 'user', isPredicting = false;
         let warningShown = false;
         const MAX_IMAGES = 500;
-        const WARNING_LIMIT = 400;
 
         async function setupCamera() {
             try {
@@ -183,14 +168,8 @@
                     webcamElement.srcObject.getTracks().forEach(track => track.stop()); 
                     webcamElement.srcObject = null;
                 }
-                
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: currentFacingMode }, 
-                    audio: false 
-                });
-                
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode }, audio: false });
                 webcamElement.srcObject = stream;
-                
                 return new Promise(resolve => {
                     webcamElement.onloadedmetadata = () => {
                         webcamElement.play();
@@ -205,72 +184,42 @@
             await setupCamera();
         }
 
-        function showOverlay(text) {
-            document.getElementById('action-text').innerText = text;
-            document.getElementById('action-overlay').style.display = 'flex';
-        }
-        function hideOverlay() { document.getElementById('action-overlay').style.display = 'none'; }
-
         function updateCounters() {
             const label0 = document.getElementById('label-0').value || "Class A";
             const label1 = document.getElementById('label-1').value || "Class B";
-            const btn0 = document.getElementById('btn-0');
-            const btn1 = document.getElementById('btn-1');
-            const btnBg = document.getElementById('btn-bg');
-
-            btn0.disabled = counts[0] >= MAX_IMAGES;
-            btn0.innerHTML = `${counts[0] >= MAX_IMAGES ? "MAXED" : "HOLD"}: ${label0}<br>${counts[0]} images`;
-            btn1.disabled = counts[1] >= MAX_IMAGES;
-            btn1.innerHTML = `${counts[1] >= MAX_IMAGES ? "MAXED" : "HOLD"}: ${label1}<br>${counts[1]} images`;
-            btnBg.disabled = counts.bg >= MAX_IMAGES;
-            btnBg.innerHTML = `${counts.bg >= MAX_IMAGES ? "MAXED" : "HOLD"}: Background<br>${counts.bg} images`;
-
-            if (!warningShown && (counts.bg >= WARNING_LIMIT || counts[0] >= WARNING_LIMIT || counts[1] >= WARNING_LIMIT)) {
-                document.getElementById('limit-pop').style.display = 'block';
-                warningShown = true;
-            }
+            document.getElementById('btn-0').innerHTML = `${counts[0] >= MAX_IMAGES ? "MAXED" : "HOLD"}: ${label0}<br>${counts[0]} images`;
+            document.getElementById('btn-1').innerHTML = `${counts[1] >= MAX_IMAGES ? "MAXED" : "HOLD"}: ${label1}<br>${counts[1]} images`;
+            document.getElementById('btn-bg').innerHTML = `${counts.bg >= MAX_IMAGES ? "MAXED" : "HOLD"}: Background<br>${counts.bg} images`;
         }
 
         async function resetModel() {
             if(confirm("Delete all training data?")) {
-                showOverlay("Resetting AI...");
                 isPredicting = false;
                 classifier.clearAllClasses();
                 counts = { bg: 0, 0: 0, 1: 0 };
-                warningShown = false;
-                document.getElementById('label-0').value = "Class A";
-                document.getElementById('label-1').value = "Class B";
                 updateCounters();
                 await setupCamera(); 
-                hideOverlay();
             }
         }
 
         async function addExample(classId) {
-            if (!net || counts[classId] >= MAX_IMAGES) return;
-            // Only add if video is actually moving
-            if (webcamElement.readyState < 2 || webcamElement.currentTime === 0) return;
-
-            tf.tidy(() => {
-                const img = tf.browser.fromPixels(webcamElement);
-                classifier.addExample(net.infer(img, 'conv_preds'), classId);
-            });
+            if (!net || counts[classId] >= MAX_IMAGES || webcamElement.readyState < 2) return;
+            const img = tf.browser.fromPixels(webcamElement);
+            const activation = net.infer(img, 'conv_preds');
+            classifier.addExample(activation, classId);
+            img.dispose(); // Manual dispose
+            activation.dispose(); // Manual dispose
+            
             counts[classId]++;
             const bubble = document.getElementById('live-counter');
-            const num = document.getElementById('bubble-num');
             bubble.style.display = 'flex';
-            num.innerText = counts[classId];
-            const colors = { 'bg': 'var(--color-bg-btn)', '0': 'var(--color-class-a)', '1': 'var(--color-class-b)' };
-            bubble.style.backgroundColor = colors[classId];
+            document.getElementById('bubble-num').innerText = counts[classId];
+            bubble.style.backgroundColor = { 'bg': '#7f8c8d', '0': '#a4c639', '1': '#e94e24' }[classId];
             updateCounters();
         }
 
         function startCapture(id) { if(!timer) timer = setInterval(() => addExample(id), 100); }
-        function stopCapture() { 
-            clearInterval(timer); 
-            timer = null; 
-            document.getElementById('live-counter').style.display = 'none'; 
-        }
+        function stopCapture() { clearInterval(timer); timer = null; document.getElementById('live-counter').style.display = 'none'; }
 
         [ 'bg', '0', '1' ].forEach(id => {
             const btn = document.getElementById(`btn-${id}`);
@@ -279,33 +228,32 @@
             btn.onmouseup = stopCapture; btn.onmouseleave = stopCapture; btn.ontouchend = stopCapture;
         });
 
-        async function mainLoop() {
+        async function runPrediction() {
             while (true) {
                 const isReady = counts.bg >= 50 && counts[0] >= 50 && counts[1] >= 50;
-                if (isReady && !isPredicting) {
-                    isPredicting = true;
-                    runPrediction();
-                } else if (!isReady) {
-                    isPredicting = false;
-                }
-                await new Promise(r => setTimeout(r, 600));
-            }
-        }
-
-        async function runPrediction() {
-            while (isPredicting) {
-                // IMPORTANT: Only predict if the camera has actually started ticking forward
-                if (classifier.getNumClasses() > 0 && webcamElement.readyState >= 2 && webcamElement.currentTime > 0) {
+                
+                if (isReady && classifier.getNumClasses() > 0 && webcamElement.readyState >= 2) {
                     try {
-                        const result = await tf.tidy(async () => {
-                            const img = tf.browser.fromPixels(webcamElement);
-                            return await classifier.predictClass(net.infer(img, 'conv_preds'));
-                        });
+                        // Crucial: Manual Tensor Disposal for Async
+                        const img = tf.browser.fromPixels(webcamElement);
+                        const activation = net.infer(img, 'conv_preds');
+                        const result = await classifier.predictClass(activation);
+                        
                         const labels = { bg: 'Background', 0: document.getElementById('label-0').value, 1: document.getElementById('label-1').value };
                         document.getElementById('prediction').innerText = labels[result.label];
                         document.getElementById('confidence').innerText = `${Math.floor(result.confidences[result.label]*100)}% Confidence`;
-                    } catch(e) { }
+                        
+                        img.dispose();
+                        activation.dispose();
+                    } catch(e) { console.error(e); }
+                } else {
+                    document.getElementById('prediction').innerText = "Waiting...";
+                    document.getElementById('confidence').innerText = "Add 50 images per class";
                 }
+                
+                // Watchdog: If video stops ticking, force play
+                if (webcamElement.paused && webcamElement.srcObject) webcamElement.play();
+                
                 await tf.nextFrame();
             }
         }
@@ -324,16 +272,8 @@
             const file = event.target.files[0];
             if (!file) return;
             
-            showOverlay("Jumpstarting AI...");
-            isPredicting = false; 
+            document.getElementById('action-overlay').style.display = 'flex';
             
-            // Hard kill camera
-            if (webcamElement.srcObject) {
-                webcamElement.srcObject.getTracks().forEach(track => track.stop());
-                webcamElement.srcObject = null;
-            }
-            webcamElement.load(); // Forces player to empty state
-
             const reader = new FileReader();
             reader.onload = async (e) => {
                 const model = JSON.parse(e.target.result);
@@ -345,20 +285,16 @@
                 classifier.clearAllClasses();
                 classifier.setClassifierDataset(tensorObj);
                 counts = model.counts;
-                
                 if(model.labels) {
                     document.getElementById('label-0').value = model.labels[0];
                     document.getElementById('label-1').value = model.labels[1];
                 }
-                
                 updateCounters();
                 
-                // Allow the browser to settle after heavy JSON parsing
-                await new Promise(resolve => setTimeout(resolve, 500));
-                
+                // Restart everything
                 await setupCamera();
-                hideOverlay();
-                alert("Model Ready!");
+                document.getElementById('action-overlay').style.display = 'none';
+                alert("AI Ready!");
             };
             reader.readAsText(file);
         }
@@ -367,7 +303,7 @@
             net = await mobilenet.load();
             document.getElementById('loading-overlay').style.display = 'none';
             await setupCamera();
-            mainLoop();
+            runPrediction(); // Start the single loop
         })();
     </script>
 </body>
