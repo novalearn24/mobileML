@@ -1,351 +1,654 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>mobileML - Pose (Fluid iPad Version)</title>
-    
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/knn-classifier"></script>
-    
-    <style>
-        :root {
-            --color-lines: #3b1d4a;   
-            --color-class-a: #a4c639; 
-            --color-class-b: #e94e24; 
-            --color-bg-btn: #7f8c8d;  
-            --bg-page: #ffffff;
-            --text-main: #2d3436;
-            --turquoise: #00cec9;
-        }
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-        body { 
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: var(--bg-page);
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000' preserveAspectRatio='none'%3E%3Cdefs%3E%3Cg id='bus'%3E%3Cpath d='M0,0 L10,10 L10,50 L0,60'/%3E%3Cpath d='M12,0 L22,10 L22,50 L12,60'/%3E%3Cpath d='M24,0 L34,10 L34,50 L24,60'/%3E%3Cpath d='M36,0 L46,10 L46,50 L36,60'/%3E%3C/g%3E%3C/defs%3E%3Cuse href='%23bus' transform='translate(-10, 80) scale(3.5)' stroke='%233b1d4a' stroke-width='0.8' fill='none'/%3E%3Cuse href='%23bus' transform='translate(-10, 620) scale(3.5)' stroke='%233b1d4a' stroke-width='0.8' fill='none'/%3E%3Cuse href='%23bus' transform='translate(1010, 80) scale(-3.5, 3.5)' stroke='%233b1d4a' stroke-width='0.8' fill='none'/%3E%3Cuse href='%23bus' transform='translate(1010, 620) scale(-3.5, 3.5)' stroke='%233b1d4a' stroke-width='0.8' fill='none'/%3E%3C/svg%3E");
-            background-repeat: no-repeat; background-size: cover; background-attachment: fixed;
-            margin: 0; display: flex; flex-direction: column; align-items: center; 
-            min-height: 100vh; padding: 10px; box-sizing: border-box; overflow-x: hidden;
-        }
+<title>mobileML - Pose (Stable Version)</title>
 
-        h2 { margin: 15px 0 10px 0; font-size: 1.3rem; color: var(--color-lines); font-weight: 800; }
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/knn-classifier"></script>
 
-        #video-container { 
-            position: relative; width: 100%; max-width: 420px; border-radius: 24px; 
-            overflow: hidden; border: 6px solid #f8f9fa; aspect-ratio: 1/1; background: black;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
-        }
-        video, canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
-        video { transform: scaleX(-1); }
-        canvas { z-index: 10; pointer-events: none; transform: scaleX(-1); }
+<style>
+:root {
+    --color-lines: #3b1d4a;
+    --color-class-a: #a4c639;
+    --color-class-b: #e94e24;
+    --color-bg-btn: #7f8c8d;
+    --bg-page: #ffffff;
+    --text-main: #2d3436;
+    --turquoise: #00cec9;
+}
 
-        #live-counter {
-            position: absolute; bottom: 15px; left: 15px;
-            width: 50px; height: 50px; border-radius: 50%;
-            background: var(--turquoise); color: white;
-            display: none; align-items: center; justify-content: center;
-            font-weight: 900; z-index: 30; font-size: 1.1rem;
-            border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.4);
-        }
+body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background-color: var(--bg-page);
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 10px;
+    box-sizing: border-box;
+    overflow-x: hidden;
+}
 
-        #status-bar {
-            width: 100%; max-width: 420px; background: white; padding: 18px; 
-            border-radius: 20px; margin: 15px 0; text-align: center;
-            border: 1px solid #eee; min-height: 95px; display: flex; flex-direction: column; justify-content: center;
-            box-sizing: border-box; box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        }
+h2 {
+    margin: 15px 0 10px 0;
+    font-size: 1.3rem;
+    color: var(--color-lines);
+    font-weight: 800;
+}
 
-        .toolbar { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 15px; width: 100%; max-width: 420px; }
-        .setup-btn { background: #fff; border: 2px solid #f0f0f0; padding: 10px 14px; border-radius: 10px; font-size: 0.75rem; font-weight: 700; flex: 1; min-width: 80px; cursor: pointer;}
+#video-container {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    border-radius: 24px;
+    overflow: hidden;
+    border: 6px solid #f8f9fa;
+    aspect-ratio: 1/1;
+    background: black;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+}
 
-        .training-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; max-width: 420px; padding-bottom: 10px;}
-        .label-wrapper { position: relative; width: 100%; display: flex; flex-direction: column; gap: 8px; }
-        .pencil-icon { position: absolute; right: 12px; top: 12px; font-size: 1rem; pointer-events: none; opacity: 0.6; }
+video,
+canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
 
-        .label-input {
-            width: 100%; border: 2px solid #ddd; border-radius: 12px;
-            padding: 12px; padding-right: 35px; font-size: 0.9rem; font-weight: 800;
-            text-align: center; box-sizing: border-box; color: var(--text-main);
-            background: #ffffff; outline: none;
-        }
+video {
+    transform: scaleX(-1);
+}
 
-        .train-btn { 
-            padding: 25px 5px; border: none; border-radius: 18px; 
-            font-size: 0.95rem; font-weight: bold; color: white; 
-            touch-action: none; -webkit-user-select: none; user-select: none;
-            box-shadow: 0 6px 10px rgba(0,0,0,0.12); cursor: pointer;
-        }
-        #btn-bg { background: var(--color-bg-btn); grid-column: span 2; padding: 25px; margin-top: 5px; }
-        #btn-0 { background: var(--color-class-a); color: #333; }
-        #btn-1 { background: var(--color-class-b); }
+canvas {
+    z-index: 10;
+    pointer-events: none;
+    transform: scaleX(-1);
+}
 
-        .nav-container { display: flex; gap: 10px; margin: 25px 0; width: 100%; max-width: 420px; }
-        .mode-btn {
-            flex: 1; padding: 12px 10px; border-radius: 30px;
-            background: var(--color-lines); color: white;
-            text-decoration: none; font-weight: 800; font-size: 0.75rem;
-            box-shadow: 0 4px 15px rgba(59, 29, 74, 0.3);
-            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-            text-align: center;
-        }
+#status-bar {
+    width: 100%;
+    max-width: 420px;
+    background: white;
+    padding: 18px;
+    border-radius: 20px;
+    margin: 15px 0;
+    text-align: center;
+    border: 1px solid #eee;
+    min-height: 95px;
+}
 
-        #loading-overlay { position: fixed; inset: 0; background: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 4000; }
-    </style>
+.toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 15px;
+    width: 100%;
+    max-width: 420px;
+}
+
+.setup-btn {
+    background: #fff;
+    border: 2px solid #f0f0f0;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex: 1;
+    cursor: pointer;
+}
+
+.training-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    width: 100%;
+    max-width: 420px;
+}
+
+.label-input {
+    width: 100%;
+    border: 2px solid #ddd;
+    border-radius: 12px;
+    padding: 12px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.train-btn {
+    padding: 25px 5px;
+    border: none;
+    border-radius: 18px;
+    font-size: 0.95rem;
+    font-weight: bold;
+    color: white;
+    touch-action: none;
+    cursor: pointer;
+}
+
+#btn-bg {
+    background: var(--color-bg-btn);
+    grid-column: span 2;
+    margin-top: 5px;
+}
+
+#btn-0 {
+    background: var(--color-class-a);
+    color: #333;
+}
+
+#btn-1 {
+    background: var(--color-class-b);
+}
+
+#loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 4000;
+}
+</style>
 </head>
+
 <body>
 
-    <div id="loading-overlay"><p style="font-weight:700;">Powering Up AI (MOBILE POSE)...</p></div>
+<div id="loading-overlay">
+    <p>Loading AI...</p>
+</div>
 
-    <h2>📱 mobileML - Pose</h2>
-    
-    <div id="video-container">
-        <video autoplay playsinline muted id="webcam"></video>
-        <canvas id="canvas"></canvas>
-        <div id="live-counter">0</div>
-    </div>
+<h2>📱 mobileML - Pose</h2>
 
-    <div id="status-bar">
-        <span id="prediction" style="font-size: 1.4rem; font-weight: 900; color: var(--color-lines);">Ready to Train</span>
-        <span id="confidence" style="font-size: 0.8rem; color: #636e72; margin-top: 6px;">Need 50 images per class</span>
-    </div>
+<div id="video-container">
+    <video autoplay playsinline muted id="webcam"></video>
+    <canvas id="canvas"></canvas>
+</div>
 
-    <div class="toolbar">
-        <button class="setup-btn" onclick="toggleCamera()">🔄 Flip Camera</button>
-        <button class="setup-btn" onclick="saveModel()">💾 Save Model</button>
-        <button class="setup-btn" onclick="document.getElementById('load-file').click()">📂 Upload Model</button>
-        <button class="setup-btn" style="color: #e94e24;" onclick="resetModel()">🗑️ Reset</button>
-        <input type="file" id="load-file" style="display:none" onchange="loadModel(event)">
-    </div>
+<div id="status-bar">
+    <span id="prediction"
+          style="font-size:1.4rem;font-weight:900;">Ready</span><br>
 
-    <div class="training-grid">
-        <div class="label-wrapper">
-            <span class="pencil-icon">✏️</span>
-            <input type="text" id="label-0" class="label-input" value="Class A" oninput="updateBtnText(0)">
-        </div>
-        <div class="label-wrapper">
-            <span class="pencil-icon">✏️</span>
-            <input type="text" id="label-1" class="label-input" value="Class B" oninput="updateBtnText(1)">
-        </div>
-        
-        <button class="train-btn" id="btn-0">HOLD: <span id="btn-txt-0">Class A</span><br><span id="count-0">0</span></button>
-        <button class="train-btn" id="btn-1">HOLD: <span id="btn-txt-1">Class B</span><br><span id="count-1">0</span></button>
-        <button class="train-btn" id="btn-bg">HOLD: Background / Neutral<br><span id="count-bg">0</span></button>
-    </div>
+    <span id="confidence"
+          style="font-size:0.8rem;color:#666;">
+        Need 50 samples each
+    </span>
+</div>
 
-    <div class="nav-container">
-        <a href="index.html" class="mode-btn">⇠ IMAGE TRAINER</a>
-        <a href="pose-missioncontrol.html" class="mode-btn">POSE MISSION ⇢</a>
-    </div>
+<div class="toolbar">
+    <button class="setup-btn" onclick="toggleCamera()">🔄 Flip</button>
+    <button class="setup-btn" onclick="saveModel()">💾 Save</button>
+    <button class="setup-btn"
+            onclick="document.getElementById('load-file').click()">
+        📂 Upload
+    </button>
+    <button class="setup-btn"
+            style="color:red;"
+            onclick="resetModel()">
+        🗑️ Reset
+    </button>
 
-    <script>
-        let detector, classifier, video, canvas, ctx;
-        let counts = { 0: 0, 1: 0, bg: 0 };
-        let timer = null;
-        let isTraining = false;
-        let currentFacingMode = 'user';
-        let lastInferenceTime = 0;
-        
-        const MIN_SAMPLES = 50;
-        const TARGET_FPS = 25; 
-        const classColors = { '0': '#a4c639', '1': '#e94e24', 'bg': '#7f8c8d' };
+    <input type="file"
+           id="load-file"
+           style="display:none"
+           onchange="loadModel(event)">
+</div>
 
-        async function setupWebcam() {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: currentFacingMode, width: 480, height: 480 }, 
-                audio: false 
-            });
-            video.srcObject = stream;
+<div class="training-grid">
+
+    <input type="text"
+           id="label-0"
+           class="label-input"
+           value="Class A"
+           oninput="updateBtnText(0)">
+
+    <input type="text"
+           id="label-1"
+           class="label-input"
+           value="Class B"
+           oninput="updateBtnText(1)">
+
+    <button class="train-btn" id="btn-0">
+        HOLD:
+        <span id="btn-txt-0">Class A</span><br>
+        <span id="count-0">0</span>
+    </button>
+
+    <button class="train-btn" id="btn-1">
+        HOLD:
+        <span id="btn-txt-1">Class B</span><br>
+        <span id="count-1">0</span>
+    </button>
+
+    <button class="train-btn" id="btn-bg">
+        HOLD: Background<br>
+        <span id="count-bg">0</span>
+    </button>
+
+</div>
+
+<script>
+
+let detector;
+let classifier;
+let video;
+let canvas;
+let ctx;
+
+let latestPose = null;
+
+let counts = {
+    0: 0,
+    1: 0,
+    bg: 0
+};
+
+let isPredicting = false;
+let isLoadingModel = false;
+
+let currentFacingMode = 'user';
+
+const reusableInput = new Float32Array(34);
+
+async function setupWebcam() {
+
+    if (video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+            facingMode: currentFacingMode,
+            width: 360,
+            height: 360
+        },
+        audio: false
+    });
+
+    video.srcObject = stream;
+
+    return new Promise(resolve => {
+        video.onloadedmetadata = resolve;
+    });
+}
+
+async function init() {
+
+    video = document.getElementById('webcam');
+    canvas = document.getElementById('canvas');
+    ctx = canvas.getContext('2d');
+
+    await tf.ready();
+
+    await tf.setBackend('webgl');
+
+    classifier = knnClassifier.create();
+
+    try {
+
+        detector = await poseDetection.createDetector(
+            poseDetection.SupportedModels.MoveNet,
+            {
+                modelType:
+                    poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING
+            }
+        );
+
+        await setupWebcam();
+
+        await video.play();
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        document.getElementById('loading-overlay').style.display = 'none';
+
+        renderLoop();
+
+        setInterval(processML, 100);
+
+    } catch (e) {
+
+        console.error(e);
+        alert("Error loading AI");
+
+    }
+}
+
+function renderLoop() {
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (latestPose) {
+        drawPose(latestPose);
+    }
+
+    requestAnimationFrame(renderLoop);
+}
+
+async function processML() {
+
+    if (
+        isLoadingModel ||
+        isPredicting ||
+        video.readyState !== 4
+    ) {
+        return;
+    }
+
+    try {
+
+        const poses = await detector.estimatePoses(video);
+
+        if (poses.length > 0) {
+
+            latestPose = poses[0];
+
+            if (classifier.getNumClasses() > 0) {
+                runInference(latestPose);
+            }
         }
 
-        async function toggleCamera() {
-            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
-            await setupWebcam();
+    } catch (err) {
+
+        console.error("Pose detection error", err);
+
+    }
+}
+
+function drawPose(pose) {
+
+    pose.keypoints.forEach(kp => {
+
+        if (kp.score > 0.4) {
+
+            ctx.beginPath();
+
+            ctx.arc(kp.x, kp.y, 6, 0, 2 * Math.PI);
+
+            ctx.fillStyle = "#00cec9";
+
+            ctx.fill();
+        }
+    });
+}
+
+async function runInference(pose) {
+
+    isPredicting = true;
+
+    try {
+
+        for (let i = 0; i < 17; i++) {
+
+            reusableInput[i * 2] =
+                pose.keypoints[i].x;
+
+            reusableInput[i * 2 + 1] =
+                pose.keypoints[i].y;
         }
 
-        async function init() {
-            video = document.getElementById('webcam');
-            canvas = document.getElementById('canvas');
-            ctx = canvas.getContext('2d');
+        const feat = tf.tensor2d(reusableInput, [1, 34]);
 
-            await tf.setBackend('webgl');
-            classifier = knnClassifier.create();
+        const result = await classifier.predictClass(feat);
+
+        feat.dispose();
+
+        if (result) {
+
+            const label = result.label;
+
+            const conf =
+                Math.floor(
+                    result.confidences[label] * 100
+                );
+
+            const name =
+                label === 'bg'
+                    ? 'Neutral'
+                    : document.getElementById(
+                        'label-' + label
+                    ).value;
+
+            document.getElementById('prediction')
+                .innerText = name.toUpperCase();
+
+            document.getElementById('confidence')
+                .innerText = conf + "% Confidence";
+        }
+
+    } catch (err) {
+
+        console.error("Inference Error", err);
+
+    } finally {
+
+        isPredicting = false;
+
+    }
+}
+
+async function train(id) {
+
+    if (isLoadingModel) return;
+
+    try {
+
+        const poses =
+            await detector.estimatePoses(video);
+
+        if (poses.length > 0) {
+
+            for (let i = 0; i < 17; i++) {
+
+                reusableInput[i * 2] =
+                    poses[0].keypoints[i].x;
+
+                reusableInput[i * 2 + 1] =
+                    poses[0].keypoints[i].y;
+            }
+
+            const feat =
+                tf.tensor2d(reusableInput, [1, 34]);
+
+            classifier.addExample(feat, id);
+
+            feat.dispose();
+
+            counts[id]++;
+
+            document.getElementById(
+                'count-' + id
+            ).innerText = counts[id];
+        }
+
+    } catch (err) {
+
+        console.error("Training error", err);
+
+    }
+}
+
+async function loadModel(event) {
+
+    isLoadingModel = true;
+
+    document.getElementById('prediction')
+        .innerText = "LOADING...";
+
+    try {
+
+        const file = event.target.files[0];
+
+        const reader = new FileReader();
+
+        reader.onload = async (e) => {
 
             try {
-                const model = poseDetection.SupportedModels.MoveNet;
-                const detectorConfig = { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING };
-                detector = await poseDetection.createDetector(model, detectorConfig);
-                
-                await setupWebcam();
-                video.onloadedmetadata = () => {
-                    video.play();
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    document.getElementById('loading-overlay').style.display = 'none';
-                    requestAnimationFrame(loop);
-                };
-            } catch (e) { alert("Camera/AI Error: " + e); }
-        }
 
-        async function loop(timestamp) {
-            const elapsed = timestamp - lastInferenceTime;
-            if (elapsed < (1000 / TARGET_FPS)) {
-                requestAnimationFrame(loop);
-                return;
-            }
-            lastInferenceTime = timestamp;
+                const content =
+                    JSON.parse(e.target.result);
 
-            if (video.readyState < 2) {
-                requestAnimationFrame(loop);
-                return;
-            }
-
-            const poses = await detector.estimatePoses(video);
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            if (poses.length > 0) {
-                const pose = poses[0];
-                
-                // Draw skeleton points
-                pose.keypoints.forEach(kp => {
-                    if (kp.score > 0.4) {
-                        ctx.beginPath();
-                        ctx.arc(kp.x, kp.y, 8, 0, 2*Math.PI);
-                        ctx.fillStyle = "#00cec9";
-                        ctx.fill();
-                        ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke();
-                    }
-                });
-
-                // Logic: Only predict if we actually have data in the classifier
-                const canPredict = classifier.getNumClasses() > 0 && 
-                                  counts[0] >= MIN_SAMPLES && 
-                                  counts[1] >= MIN_SAMPLES && 
-                                  counts['bg'] >= MIN_SAMPLES;
-
-                if (canPredict && !isTraining) {
-                    // tf.tidy is vital for iPad to prevent memory bloat crashes
-                    tf.tidy(() => {
-                        const feat = tf.tensor2d(pose.keypoints.map(k => [k.x, k.y]).flat(), [1, 34]);
-                        classifier.predictClass(feat).then(res => {
-                            if(res.confidences[res.label] > 0.5) {
-                                const labelName = res.label === 'bg' ? 'Neutral' : (document.getElementById('label-' + res.label)?.value || "Detected");
-                                document.getElementById('prediction').innerHTML = `<span style="color:#00cec9; font-size:0.8rem;">DETECTED:</span><br>${labelName.toUpperCase()}`;
-                                document.getElementById('confidence').innerText = Math.floor(res.confidences[res.label] * 100) + "% Match";
-                            }
-                        });
-                    });
-                } else if (!canPredict) {
-                    document.getElementById('prediction').innerText = "Training Mode";
-                    document.getElementById('confidence').innerText = `Req: A(${counts[0]}/50) B(${counts[1]}/50) BG(${counts['bg']}/50)`;
-                }
-            }
-            requestAnimationFrame(loop);
-        }
-
-        async function train(id) {
-            if (isTraining) return;
-            isTraining = true;
-            try {
-                const poses = await detector.estimatePoses(video);
-                if (poses.length > 0) {
-                    tf.tidy(() => {
-                        const feat = tf.tensor2d(poses[0].keypoints.map(k => [k.x, k.y]).flat(), [1, 34]);
-                        classifier.addExample(feat, id);
-                    });
-                    counts[id]++;
-                    document.getElementById('count-'+id).innerText = counts[id];
-                    
-                    const counter = document.getElementById('live-counter');
-                    counter.style.display = 'flex';
-                    counter.style.backgroundColor = classColors[id];
-                    counter.innerText = counts[id];
-                }
-            } finally {
-                isTraining = false;
-            }
-        }
-
-        function updateBtnText(id) {
-            document.getElementById('btn-txt-' + id).innerText = document.getElementById('label-' + id).value;
-        }
-
-        function saveModel() {
-            const dataset = classifier.getClassifierDataset();
-            const datasetObj = Object.entries(dataset).map(([label, data]) => [label, Array.from(data.dataSync()), data.shape]);
-            const a = document.createElement('a');
-            const exportData = {
-                data: datasetObj, 
-                labels: [document.getElementById('label-0').value, document.getElementById('label-1').value], 
-                counts: counts
-            };
-            a.href = URL.createObjectURL(new Blob([JSON.stringify(exportData)], {type: "application/json"}));
-            a.download = "pose_model.json"; a.click();
-        }
-
-        async function loadModel(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                try {
-                    const content = JSON.parse(e.target.result);
-                    
-                    // Clear existing to avoid memory stack
-                    classifier.clearAllClasses();
-                    
-                    const dataset = Object.fromEntries(content.data.map(([label, data, shape]) => [label, tf.tensor2d(data, shape)]));
-                    classifier.setClassifierDataset(dataset);
-                    
-                    document.getElementById('label-0').value = content.labels[0];
-                    document.getElementById('label-1').value = content.labels[1];
-                    counts = content.counts || {0:50, 1:50, bg:50}; 
-                    
-                    ['0','1','bg'].forEach(id => {
-                        const el = document.getElementById('count-'+id);
-                        if(el) el.innerText = counts[id];
-                    });
-                    
-                    updateBtnText(0); updateBtnText(1);
-                    alert("Model Loaded!");
-                } catch (err) {
-                    alert("Load Error: " + err.message);
-                }
-            };
-            reader.readAsText(file);
-        }
-
-        function resetModel() {
-            if(confirm("Reset everything?")) {
                 classifier.clearAllClasses();
-                counts = {0:0, 1:0, bg:0};
-                ['0','1','bg'].forEach(id => document.getElementById('count-'+id).innerText = '0');
-                document.getElementById('prediction').innerText = "Ready to Train";
-                document.getElementById('confidence').innerText = "Need 50 images per class";
-                document.getElementById('live-counter').style.display = 'none';
+
+                await tf.nextFrame();
+
+                const dataset = {};
+
+                for (const [label, data, shape]
+                    of content.data) {
+
+                    await tf.nextFrame();
+
+                    dataset[label] =
+                        tf.tensor2d(data, shape);
+                }
+
+                classifier.setClassifierDataset(dataset);
+
+                counts =
+                    content.counts ||
+                    {0:50,1:50,bg:50};
+
+                document.getElementById('label-0')
+                    .value = content.labels[0];
+
+                document.getElementById('label-1')
+                    .value = content.labels[1];
+
+                updateBtnText(0);
+                updateBtnText(1);
+
+                document.getElementById('prediction')
+                    .innerText = "READY";
+
+                alert("Model Loaded!");
+
+            } catch (err) {
+
+                console.error(err);
+
+                alert("Failed to load model");
+
+            } finally {
+
+                isLoadingModel = false;
             }
-        }
+        };
 
-        ['0', '1', 'bg'].forEach(id => {
-            const b = document.getElementById('btn-'+id);
-            const start = (e) => { 
-                e.preventDefault(); 
-                if (timer) clearInterval(timer);
-                timer = setInterval(() => train(id), 100); 
-            };
-            const stop = (e) => { 
-                if (e) e.preventDefault();
-                clearInterval(timer); 
-                timer = null;
-                document.getElementById('live-counter').style.display = 'none'; 
-            };
-            b.addEventListener('pointerdown', start);
-            b.addEventListener('pointerup', stop);
-            b.addEventListener('pointerleave', stop);
-            b.oncontextmenu = (e) => { e.preventDefault(); return false; };
-        });
+        reader.readAsText(file);
 
-        init();
-    </script>
+    } catch (err) {
+
+        console.error(err);
+
+        isLoadingModel = false;
+
+    }
+}
+
+function saveModel() {
+
+    const dataset =
+        classifier.getClassifierDataset();
+
+    const datasetObj =
+        Object.entries(dataset).map(([l, d]) => [
+            l,
+            Array.from(d.dataSync()),
+            d.shape
+        ]);
+
+    const blob = new Blob([
+        JSON.stringify({
+            data: datasetObj,
+            labels: [
+                document.getElementById('label-0').value,
+                document.getElementById('label-1').value
+            ],
+            counts: counts
+        })
+    ], {
+        type: "application/json"
+    });
+
+    const a = document.createElement('a');
+
+    a.href = URL.createObjectURL(blob);
+
+    a.download = "my_model.json";
+
+    a.click();
+}
+
+function updateBtnText(id) {
+
+    document.getElementById(
+        'btn-txt-' + id
+    ).innerText =
+        document.getElementById(
+            'label-' + id
+        ).value;
+}
+
+function resetModel() {
+
+    location.reload();
+}
+
+async function toggleCamera() {
+
+    currentFacingMode =
+        currentFacingMode === 'user'
+            ? 'environment'
+            : 'user';
+
+    await setupWebcam();
+
+    await video.play();
+}
+
+let timer;
+
+['0', '1', 'bg'].forEach(id => {
+
+    const b =
+        document.getElementById('btn-' + id);
+
+    b.addEventListener('pointerdown', (e) => {
+
+        e.preventDefault();
+
+        timer =
+            setInterval(() => train(id), 120);
+    });
+
+    b.addEventListener('pointerup', () => {
+
+        clearInterval(timer);
+    });
+
+    b.addEventListener('pointerleave', () => {
+
+        clearInterval(timer);
+    });
+});
+
+init();
+
+</script>
+
 </body>
 </html>
